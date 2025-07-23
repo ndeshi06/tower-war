@@ -143,8 +143,6 @@ python main.py
 
 ### Level Navigation
 - **Level Select**: Chọn level từ main menu
-- **Auto Progression**: Tự động chuyển sang level tiếp theo khi thắng
-- **Level Info**: Hiển thị thông tin level hiện tại trên HUD
 
 ### AI Difficulty
 - **Easy mode**
