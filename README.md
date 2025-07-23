@@ -89,42 +89,28 @@ Chiếm tất cả các tower trên bản đồ để giành chiến thắng.
 
 ## 🎯 Hệ thống Level
 
-Game có 5 level với độ khó tăng dần:
+Game có 3 level với độ khó tăng dần:
 
-### Level 1: Tutorial
-- **Player towers**: 2 towers (10 quân mỗi tower)
-- **Enemy towers**: 1 tower (1 quân)
-- **Neutral towers**: 3 towers
+### Level 1: Easy
+- **Player towers**: 3 towers (20 quân mỗi tower)
+- **Enemy towers**: 2 towers (10 quân mỗi tower)
+- **Neutral towers**: 2 towers
 - **AI Difficulty**: Easy
 - **Mục đích**: Làm quen với cách chơi cơ bản
 
-### Level 2: Easy Challenge
-- **Player towers**: 2 towers (8 quân mỗi tower)
-- **Enemy towers**: 2 towers (5 quân mỗi tower)
-- **Neutral towers**: 4 towers
-- **AI Difficulty**: Easy
-- **Mục đích**: Thực hành chiến thuật cơ bản
-
-### Level 3: Balanced Battle
-- **Player towers**: 2 towers (10 quân mỗi tower)
-- **Enemy towers**: 2 towers (8 quân mỗi tower)
-- **Neutral towers**: 4 towers
-- **AI Difficulty**: Medium
-- **Mục đích**: Cân bằng sức mạnh, đòi hỏi chiến thuật
-
-### Level 4: Hard Challenge
-- **Player towers**: 2 towers (8 quân mỗi tower)
-- **Enemy towers**: 3 towers (10 quân mỗi tower)
-- **Neutral towers**: 3 towers
-- **AI Difficulty**: Medium
-- **Mục đích**: Thử thách với AI thông minh hơn
-
-### Level 5: Expert Mode
-- **Player towers**: 2 towers (10 quân mỗi tower)
+### Level 2: Medium
+- **Player towers**: 2 towers (25 quân mỗi tower)
 - **Enemy towers**: 3 towers (12 quân mỗi tower)
 - **Neutral towers**: 3 towers
+- **AI Difficulty**: Medium
+- **Mục đích**: Thực hành chiến thuật với AI thông minh hơn
+
+### Level 3: Hard
+- **Player towers**: 2 towers (30 quân mỗi tower)
+- **Enemy towers**: 4 towers (20 quân mỗi tower)
+- **Neutral towers**: 2 towers
 - **AI Difficulty**: Hard
-- **Mục đích**: Thách thức cuối cùng cho chuyên gia
+- **Mục đích**: Thử thách cuối cùng với AI khó nhất
 
 ### Progression System
 - **Hoàn thành level**: Chiến thắng để mở khóa level tiếp theo
