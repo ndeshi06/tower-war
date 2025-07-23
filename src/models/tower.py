@@ -245,10 +245,9 @@ class Tower(GameObject, Clickable, Subject):
             return False
         else:
             # Khác phe, giảm quân
-            new_troops_count = self.__troops - attacking_troops
-            if new_troops_count <= 0:
+            if attacking_troops >= self.__troops:
                 # Tower bị chiếm
-                remaining_troops = abs(new_troops_count)
+                remaining_troops = attacking_troops - self.__troops
                 old_owner = self.__owner
                 self.owner = attacker_owner  # Sử dụng setter để trigger notification
                 self.troops = remaining_troops
@@ -256,7 +255,7 @@ class Tower(GameObject, Clickable, Subject):
                 return True
             else:
                 # Tower không bị chiếm, chỉ giảm quân
-                self.troops = new_troops_count
+                self.troops = self.__troops - attacking_troops
                 return False
     
     def distance_to(self, other: 'Tower') -> float:
