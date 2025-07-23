@@ -19,9 +19,9 @@ class MainMenu(UIView):
         # Image manager
         self.image_manager = ImageManager()
         
-        # Menu buttons
+        # Menu buttons - căn giữa chính xác
         button_width, button_height = 300, 60
-        center_x = SCREEN_WIDTH // 2 - button_width // 2
+        center_x = (SCREEN_WIDTH - button_width) // 2
         start_y = SCREEN_HEIGHT // 2 - 50
         
         self.start_button = pygame.Rect(center_x, start_y, button_width, button_height)
@@ -126,10 +126,10 @@ class MainMenu(UIView):
         button_font = self.get_font(GameSettings.FONT_LARGE, bold=True)
         
         buttons = [
-            (self.start_button, "BẮT ĐẦU", Colors.GREEN),
-            (self.settings_button, "CÀI ĐẶT", Colors.BLUE),
-            (self.help_button, "HƯỚNG DẪN", Colors.GRAY),
-            (self.quit_button, "THOÁT", Colors.RED)
+            (self.start_button, "START GAME", Colors.GREEN),
+            (self.settings_button, "SETTINGS", Colors.BLUE),
+            (self.help_button, "HELP", Colors.GRAY),
+            (self.quit_button, "QUIT", Colors.RED)
         ]
         
         for button_rect, text, base_color in buttons:
@@ -150,9 +150,9 @@ class MainMenu(UIView):
         footer_font = self.get_font(GameSettings.FONT_SMALL)
         
         footer_texts = [
-            "Sử dụng chuột để chơi",
-            "ESC - Pause | F1 - Debug | 1/2/3 - AI Difficulty",
-            "Phát triển bởi Group 6 - OOP"
+            "Use mouse to play",
+            "ESC - Pause game",
+            "Developed by Group 6 - OOP"
         ]
         
         start_y = SCREEN_HEIGHT - 80

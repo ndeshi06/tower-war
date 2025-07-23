@@ -30,6 +30,45 @@
 - **Nguyên nhân**: Logic trong `receive_attack()` có thể gán số quân âm
 - **Giải pháp**: Sửa logic để kiểm tra `attacking_troops >= self.__troops` trước khi tính toán
 
+### 5. Hệ thống Level progression
+- **Vấn đề**: Game chỉ có 1 màn chơi, không có progression
+- **Giải pháp**: 
+  - Tạo 3 levels với độ khó tăng dần
+  - Level 1 (Easy): 3 player towers vs 2 enemy towers
+  - Level 2 (Medium): 2 player towers vs 3 enemy towers  
+  - Level 3 (Hard): 2 player towers vs 4 enemy towers
+  - Thêm LevelManager với State pattern
+  - Level selection UI với các nút chọn level
+
+### 6. Game Result UI System
+- **Vấn đề**: Cần UI để xử lý win/lose và chuyển level
+- **Giải pháp**:
+  - Tạo GameResultView với win/lose screens
+  - Win screen: Nút "Next Level" hoặc "Main Menu"
+  - Lose screen: Nút "Play Again" hoặc "Main Menu" 
+  - Support cho "All Levels Complete" khi thắng hết
+
+### 7. Font và Unicode Issues
+- **Vấn đề**: 
+  - Lỗi font với tiếng Việt 
+  - Unicode characters gây crash
+  - UI text bị lỗi hiển thị
+- **Giải pháp**:
+  - Chuyển tất cả text sang tiếng Anh
+  - Sử dụng system fonts với Unicode support
+  - Thêm fallback font handling
+  - Loại bỏ emoji/special characters
+
+### 8. Game Balance Adjustments
+- **Vấn đề**: Enemy quá mạnh so với player ban đầu
+- **Giải pháp**:
+  - Enemy towers bắt đầu với 50% số quân so với player
+  - Level 1: Player 20 troops, Enemy 10 troops
+  - Level 2: Player 25 troops, Enemy 12 troops  
+  - Level 3: Player 30 troops, Enemy 15 troops
+  - Cải thiện balance để game dễ chơi hơn
+
+
 ## Kết quả đạt được
 
 - Đã khắc phục các lỗi chạy chương trình chính
@@ -291,5 +330,130 @@ else:
 AI sẽ thông minh hơn ở mức Hard và có thể thích ứng tình huống ở mức Medium, tạo ra trải nghiệm chơi đa dạng cho người chơi.
 
 **Đánh giá**: Hữu ích, giải thích dễ hiểu, rất cần để hiểu logic của AI Controller.
+
+### 7. Prompt level system implementation
+**User Input**: `"thêm 2-3 level vào game, độ khó từ dễ đến khó, win level 1 thì chuyển sang 2,... thua thì chơi lại level 1"`
+
+**AI Output**:
+Tôi sẽ thêm hệ thống level với 3 mức độ khó tăng dần. Đây là cách triển khai:
+
+1. **Tạo LevelConfig trong constants.py**:
+```python
+@dataclass
+class LevelConfig:
+    level_id: int
+    name: str
+    player_towers: int
+    enemy_towers: int
+    neutral_towers: int
+    ai_difficulty: str
+    description: str
+```
+
+2. **Cập nhật LevelManager**:
+```python
+def advance_to_next_level(self) -> bool:
+    """Chuyển sang level tiếp theo"""
+    if self.current_level < len(LEVEL_CONFIGS):
+        self.current_level += 1
+        return True
+    return False  # Đã hoàn thành tất cả levels
+```
+
+3. **Logic chuyển level trong main.py**:
+- Win level → advance_to_next_level()
+- Lose level → restart current level
+- Auto-progression với Observer pattern
+
+**Đánh giá**: Đã tạo được hệ thống 3 levels với độ khó tăng dần và logic chuyển level tự động.
+
+### 8. Prompt UI improvement
+**User Input**: `"hiện giao diện trung gian để chọn level"`
+
+**AI Output**:
+Tôi sẽ tạo UI system hoàn chỉnh với level selection và result screens:
+
+1. **LevelSelectView**: UI chọn level với thông tin difficulty
+2. **GameResultView**: Win/lose screens với navigation options
+3. **App state management**: "menu" → "level_select" → "game" → "result"
+
+Cấu trúc UI flow:
+```
+Main Menu → Level Select → Game → Result Screen
+     ↑         ↑          ↓         ↓
+     └─────────┴──────────┴─────────┘
+```
+
+**Đánh giá**: Tạo được UI flow hoàn chỉnh, user experience mượt mà với nhiều navigation options.
+
+### 9. Prompt font issues
+**User Input**: `"lỗi font tiếng việt, lỗi hộp thoại khi win-lose game"`
+
+**AI Output**:
+Tôi thấy có 2 vấn đề chính:
+
+1. **Font Unicode issues**: pygame không handle tiếng Việt tốt
+2. **UI flickering**: Render logic không ổn định
+
+Giải pháp:
+```python
+# Sử dụng system font với Unicode support
+self.font = pygame.font.SysFont('arial', 24)
+
+# Fix UI state để tránh flickering
+if self.app_state == "result" and not self.result_processed:
+    self.result_processed = True
+    # Handle result logic once
+```
+
+**Đánh giá**: Đã giải quyết được hầu hết các lỗi ở prompt nhưng chưa ổn định.
+
+### 10. Prompt convert to English
+**User Input**: `"chuyển hết text trong ui sang tiếng anh"`
+
+**AI Output**:
+Tôi sẽ chuyển toàn bộ UI text sang tiếng Anh để tránh Unicode issues:
+
+```python
+# Trước
+"Dễ (3 vs 2)" → "Easy (3 vs 2)"
+"Tiếp tục" → "Continue"
+"Ra Menu" → "Main Menu"
+"Chơi lại" → "Play Again"
+
+# Sau
+BUTTON_TEXTS = {
+    'easy': 'Easy (3 vs 2)',
+    'medium': 'Medium (2 vs 3)', 
+    'hard': 'Hard (2 vs 4)',
+    'continue': 'Continue',
+    'main_menu': 'Main Menu',
+    'play_again': 'Play Again',
+    'next_level': 'Next Level'
+}
+```
+
+**Đánh giá**: Giải pháp đơn giản và hiệu quả, hoàn toàn loại bỏ vấn đề với Unicode.
+
+### 11. Prompt game balance
+**User Input**: `"điều chỉnh số quân để quân mình có lợi thế hơn một chút"`
+
+**AI Output**:
+Tôi sẽ điều chỉnh game balance để enemy towers bắt đầu với 50% troops và level 3 có 2/3 troops:
+
+```python
+# Trong LevelConfig
+level_configs = [
+    LevelConfig(1, "Easy", 20, 10, 3, 2, 1, "easy"),    # Player: 20, Enemy: 10
+    LevelConfig(2, "Medium", 25, 12, 2, 3, 1, "medium"), # Player: 25, Enemy: 12  
+    LevelConfig(3, "Hard", 30, 20, 2, 4, 1, "hard")     # Player: 30, Enemy: 20
+]
+
+# Trong GameController tower creation
+if tower_type == "enemy":
+    initial_troops = level_config.enemy_initial_troops  # 50% of player
+```
+
+**Đánh giá**: Balance adjustment hiệu quả, game dễ chơi hơn và cân bằng hơn.
 
 **Ngày hoàn thành**: 23/07/2025

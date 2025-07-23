@@ -7,9 +7,12 @@ import sys
 from src.controllers.game_controller import GameController
 from src.controllers.menu_manager import MenuManager
 from src.views.game_view import GameView
-from src.utils.constants import SCREEN_WIDTH, SCREEN_HEIGHT, GameSettings, GameState
+from src.views.level_select_view import LevelSelectView
+from src.views.game_result_view import GameResultView
+from src.models.base import Observer
+from src.utils.constants import SCREEN_WIDTH, SCREEN_HEIGHT, GameSettings, GameState, OwnerType
 
-class TowerWarGame:
+class TowerWarGame(Observer):
     """
     Main game application class
     Thể hiện Facade Pattern - cung cấp interface đơn giản cho complex subsystem
@@ -23,15 +26,21 @@ class TowerWarGame:
         self.screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
         pygame.display.set_caption("Tower War")
         
-        # Menu manager
+        # Views
         self.menu_manager = MenuManager()
+        self.level_select_view = LevelSelectView()
+        self.game_result_view = GameResultView()
         
         # Game components (MVC Pattern) - lazy initialization
         self.controller = None
         self.view = None
         
-        # Game state
-        self.in_menu = True
+        # Game state management
+        self.app_state = "menu"  # "menu", "level_select", "game", "result"
+        self.current_level = 1
+        self.winner = None
+        self.has_next_level = True
+        self.result_shown = False  # Flag để tránh hiển thị result nhiều lần
         
         # Game loop components
         self.clock = pygame.time.Clock()
@@ -41,8 +50,8 @@ class TowerWarGame:
         # Input handling
         self.keys_pressed = set()
     
-    def start_game(self):
-        """Khởi tạo game components"""
+    def start_game(self, level=1):
+        """Khởi tạo game components với level cụ thể"""
         if not self.controller:
             # Tạo game components khi cần (Lazy initialization)
             self.controller = GameController()  
@@ -50,26 +59,71 @@ class TowerWarGame:
             
             # Setup Observer relationships
             self.controller.attach(self.view)
-            
-            # Apply settings from menu
-            settings = self.menu_manager.get_settings()
-            if hasattr(self.controller, 'ai_controller'):
-                self.controller.ai_controller.set_difficulty(settings.ai_difficulty)
+            self.controller.attach(self)  # Listen for game events
         
-        # Reset game state
+        # Set level và restart game
         if self.controller:
+            self.controller.level_manager.set_level(level)
             self.controller.restart_game()
+            self.current_level = level
+            self.result_shown = False  # Reset flag
         
-        self.in_menu = False
-        print(f"Game started with AI difficulty: {self.menu_manager.get_settings().ai_difficulty}")
-        print("Controls: ESC/SPACE=Pause, Q=Quit to menu, R=Restart when game over")
-        print("          F1=Debug, F2=Grid, F3=Screenshot, 1/2/3=AI difficulty")
+        self.app_state = "game"
+        print(f"Game started at level {level}")
+    
+    def start_next_level(self):
+        """Bắt đầu level tiếp theo"""
+        if self.controller and self.controller.level_manager.advance_to_next_level():
+            next_level = self.controller.level_manager.current_level
+            self.controller.restart_game()
+            self.current_level = next_level
+            self.result_shown = False  # Reset flag
+            self.app_state = "game"
+            print(f"Advanced to level {next_level}")
+        else:
+            print("No more levels available")
+            self.return_to_menu()
+    
+    def show_level_select(self):
+        """Hiển thị level selection"""
+        self.app_state = "level_select"
+        print("Showing level selection")
+    
+    def show_result(self, winner, level, has_next_level):
+        """Hiển thị kết quả game"""
+        if self.result_shown:  # Tránh hiển thị nhiều lần
+            return
+            
+        self.app_state = "result"
+        self.winner = winner
+        self.current_level = level
+        self.has_next_level = has_next_level
+        self.result_shown = True
+        self.game_result_view.reset_animation()
+        print(f"Showing result: Winner={winner}, Level={level}, HasNext={has_next_level}")
     
     def return_to_menu(self):
         """Quay về menu"""
-        self.in_menu = True
+        self.app_state = "menu"
+        self.result_shown = False  # Reset flag
         self.menu_manager.reset_to_main()
         print("Returned to main menu")
+    
+    def update_observer(self, event_type: str, data: dict):
+        """Observer implementation để nhận events từ game controller"""
+        if self.result_shown:  # Nếu đã hiển thị result rồi thì bỏ qua
+            return
+            
+        if event_type == "level_complete":
+            winner = data.get('winner')
+            level = data.get('level', self.current_level)
+            has_next = data.get('has_next_level', False)
+            self.show_result(winner, level, has_next)
+        
+        elif event_type == "game_over":
+            winner = data.get('winner')
+            if winner != OwnerType.PLAYER:  # Player lost
+                self.show_result(winner, self.current_level, False)
     
     def run(self):
         """
@@ -95,21 +149,41 @@ class TowerWarGame:
     
     def _handle_events(self):
         """
-        Handle all pygame events
-        Strategy Pattern có thể được apply ở đây cho different input handlers
+        Handle all pygame events based on app state
         """
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 self.running = False
             
-            if self.in_menu:
+            if self.app_state == "menu":
                 # Menu events
                 action = self.menu_manager.handle_event(event)
                 if action == "start_game":
-                    self.start_game()
+                    self.show_level_select()
                 elif action == "quit":
                     self.running = False
-            else:
+                    
+            elif self.app_state == "level_select":
+                # Level selection events
+                action = self.level_select_view.handle_event(event)
+                if action and action.startswith("level_"):
+                    level = int(action.split("_")[1])
+                    self.start_game(level)
+                elif action == "back_to_menu":
+                    self.return_to_menu()
+                    
+            elif self.app_state == "result":
+                # Game result events
+                action = self.game_result_view.handle_event(event)
+                if action == "next_level":
+                    self.start_next_level()
+                elif action == "play_again":
+                    self.result_shown = False  # Reset flag
+                    self.start_game(self.current_level)
+                elif action == "main_menu":
+                    self.return_to_menu()
+                    
+            elif self.app_state == "game":
                 # Game events
                 if event.type == pygame.KEYDOWN:
                     self._handle_keydown(event)
@@ -143,6 +217,10 @@ class TowerWarGame:
         # R to restart when game over
         if event.key == pygame.K_r and self.controller.game_state == GameState.GAME_OVER:
             self.controller.restart_game()
+        
+        # Handle level complete inputs
+        elif self.controller.game_state == GameState.LEVEL_COMPLETE:
+            self.controller.handle_level_complete_input(event.key)
         
         # SPACE for alternative pause/unpause
         elif event.key == pygame.K_SPACE:
@@ -216,6 +294,7 @@ class TowerWarGame:
                     # Hide pause menu first
                     if self.view:
                         self.view.hide_pause_menu()
+                    self.result_shown = False  # Reset flag
                     self.controller.restart_game()
                     print("Game restarted")
                 elif ui_action == "resume":
@@ -237,27 +316,39 @@ class TowerWarGame:
     
     def _update(self, dt):
         """
-        Update game state
-        Observer Pattern - controller sẽ notify view về changes
+        Update game state based on app state
         """
-        if not self.in_menu and self.controller:
-            self.controller.update(dt)
-        
-        # Update menu if in menu
-        if self.in_menu:
+        if self.app_state == "menu":
             self.menu_manager.update(dt)
+            
+        elif self.app_state == "level_select":
+            self.level_select_view.update(dt)
+            
+        elif self.app_state == "game":
+            if self.controller:
+                # Chỉ update game nếu không ở trạng thái level complete
+                if self.controller.game_state != GameState.LEVEL_COMPLETE:
+                    self.controller.update(dt)
+                
+        elif self.app_state == "result":
+            self.game_result_view.update(dt)
     
     def _render(self, dt):
         """
-        Render current frame
+        Render current frame based on app state
         """
         # Clear screen
         self.screen.fill((0, 0, 0))
         
-        if self.in_menu:
+        if self.app_state == "menu":
             # Render menu
             self.menu_manager.render(self.screen)
-        else:
+            
+        elif self.app_state == "level_select":
+            # Render level selection
+            self.level_select_view.draw(self.screen)
+            
+        elif self.app_state == "game":
             # Render game
             if self.view:
                 self.view.draw(dt)
@@ -265,6 +356,21 @@ class TowerWarGame:
                 # Debug overlay
                 if self.debug_mode:
                     self._render_debug_info()
+                    
+        elif self.app_state == "result":
+            # Render game result
+            if self.view:
+                # Draw game background
+                self.view.draw(dt)
+            
+            # Draw result overlay
+            if self.winner == OwnerType.PLAYER:
+                all_complete = self.current_level >= 3 and not self.has_next_level
+                self.game_result_view.draw_win_screen(
+                    self.screen, self.current_level, self.has_next_level, all_complete
+                )
+            else:
+                self.game_result_view.draw_lose_screen(self.screen, self.current_level)
         
         # Update display
         pygame.display.flip()
@@ -279,10 +385,12 @@ class TowerWarGame:
         
         debug_info = [
             f"FPS: {self.clock.get_fps():.1f}",
-            f"Game State: {self.controller.game_state.name}",
-            f"Player Towers: {len([t for t in self.controller.towers if t.owner == 'player'])}",
-            f"Enemy Towers: {len([t for t in self.controller.towers if t.owner == 'enemy'])}",
-            f"Neutral Towers: {len([t for t in self.controller.towers if t.owner == 'neutral'])}",
+            f"Game State: {self.controller.game_state}",
+            f"Player Towers: {len([t for t in self.controller.towers if t.owner == OwnerType.PLAYER])}",
+            f"Enemy Towers: {len([t for t in self.controller.towers if t.owner == OwnerType.ENEMY])}",
+            f"Neutral Towers: {len([t for t in self.controller.towers if t.owner == OwnerType.NEUTRAL])}",
+            f"Active Troops: {len(self.controller.troops)}",
+            f"Current Level: {self.current_level}"
         ]
         
         y_offset = 10

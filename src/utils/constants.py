@@ -49,3 +49,36 @@ class GameState:
     PLAYING = 'playing'
     GAME_OVER = 'game_over'
     PAUSED = 'paused'
+    LEVEL_COMPLETE = 'level_complete'
+
+class LevelConfig:
+    """Level configuration"""
+    LEVEL_1 = {
+        'name': 'Level 1 - Easy',
+        'ai_difficulty': 'easy',
+        'player_towers': 3,
+        'enemy_towers': 2,
+        'neutral_towers': 2,
+        'initial_troops': 20,
+        'enemy_initial_troops': 10 
+    }
+    
+    LEVEL_2 = {
+        'name': 'Level 2 - Medium', 
+        'ai_difficulty': 'medium',
+        'player_towers': 2,
+        'enemy_towers': 3,
+        'neutral_towers': 3,
+        'initial_troops': 25,
+        'enemy_initial_troops': 12 
+    }
+    
+    LEVEL_3 = {
+        'name': 'Level 3 - Hard',
+        'ai_difficulty': 'hard',
+        'player_towers': 2,
+        'enemy_towers': 4,
+        'neutral_towers': 2,
+        'initial_troops': 30,
+        'enemy_initial_troops': 20 
+    }

@@ -87,6 +87,53 @@ Chiếm tất cả các tower trên bản đồ để giành chiến thắng.
    - Thắng: Khi tất cả towers đỏ đều thuộc về bạn (màu xanh)
    - Thua: Khi tất cả towers xanh đều thuộc về AI (màu đỏ)
 
+## 🎯 Hệ thống Level
+
+Game có 5 level với độ khó tăng dần:
+
+### Level 1: Tutorial
+- **Player towers**: 2 towers (10 quân mỗi tower)
+- **Enemy towers**: 1 tower (1 quân)
+- **Neutral towers**: 3 towers
+- **AI Difficulty**: Easy
+- **Mục đích**: Làm quen với cách chơi cơ bản
+
+### Level 2: Easy Challenge
+- **Player towers**: 2 towers (8 quân mỗi tower)
+- **Enemy towers**: 2 towers (5 quân mỗi tower)
+- **Neutral towers**: 4 towers
+- **AI Difficulty**: Easy
+- **Mục đích**: Thực hành chiến thuật cơ bản
+
+### Level 3: Balanced Battle
+- **Player towers**: 2 towers (10 quân mỗi tower)
+- **Enemy towers**: 2 towers (8 quân mỗi tower)
+- **Neutral towers**: 4 towers
+- **AI Difficulty**: Medium
+- **Mục đích**: Cân bằng sức mạnh, đòi hỏi chiến thuật
+
+### Level 4: Hard Challenge
+- **Player towers**: 2 towers (8 quân mỗi tower)
+- **Enemy towers**: 3 towers (10 quân mỗi tower)
+- **Neutral towers**: 3 towers
+- **AI Difficulty**: Medium
+- **Mục đích**: Thử thách với AI thông minh hơn
+
+### Level 5: Expert Mode
+- **Player towers**: 2 towers (10 quân mỗi tower)
+- **Enemy towers**: 3 towers (12 quân mỗi tower)
+- **Neutral towers**: 3 towers
+- **AI Difficulty**: Hard
+- **Mục đích**: Thách thức cuối cùng cho chuyên gia
+
+### Progression System
+- **Hoàn thành level**: Chiến thắng để mở khóa level tiếp theo
+- **Level complete dialog**: Hiển thị khi thắng, cho phép chuyển level
+- **Restart option**: Có thể chơi lại từ level 1 bất cứ lúc nào
+- **Điều khiển**: 
+  - `SPACE` - Chuyển sang level tiếp theo
+  - `R` - Restart từ level 1
+
 ## Cài đặt và chạy
 
 1. Cài đặt pygame:
@@ -104,6 +151,14 @@ python main.py
 ### Game Controls
 - **Click chuột trái**: Chọn tower và gửi quân
 - **ESC**: Pause/Resume game
+- **SPACE**: Continue khi level complete hoặc resume khi pause
+- **R**: Restart game từ level 1
+- **Q**: Về main menu (khi pause)
+
+### Level Navigation
+- **Level Select**: Chọn level từ main menu
+- **Auto Progression**: Tự động chuyển sang level tiếp theo khi thắng
+- **Level Info**: Hiển thị thông tin level hiện tại trên HUD
 
 ### AI Difficulty
 - **Easy mode**

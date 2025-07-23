@@ -104,10 +104,12 @@ class GameHUD(UIView, Observer):
     """
     
     def __init__(self):
-        super().__init__(0, 0, SCREEN_WIDTH, 120)
+        super().__init__(0, 0, SCREEN_WIDTH, 80)  # Giảm từ 120 xuống 80
         Observer.__init__(self)
         self.game_stats = {}
         self.instructions_visible = True
+        self.level_info = ""
+        self.level_progress = ""
     
     def update_observer(self, event_type: str, data: dict):
         """Update HUD khi có events"""
@@ -115,6 +117,11 @@ class GameHUD(UIView, Observer):
             self.game_stats = data
         elif event_type == "game_over":
             self.instructions_visible = False
+        elif event_type == "game_restarted":
+            self.instructions_visible = True
+            self.level_info = data.get('level_info', '')
+            level_num = data.get('level', 1)
+            self.level_progress = f"Level {level_num}/3"
     
     def draw(self, screen: pygame.Surface):
         """Vẽ HUD"""
@@ -122,13 +129,19 @@ class GameHUD(UIView, Observer):
             return
         
         # Background cho HUD
-        hud_rect = pygame.Rect(0, 0, SCREEN_WIDTH, 120)
+        hud_rect = pygame.Rect(0, 0, SCREEN_WIDTH, 80)  # Giảm chiều cao
         pygame.draw.rect(screen, (240, 240, 240), hud_rect)
         pygame.draw.rect(screen, Colors.BLACK, hud_rect, 2)
         
-        # Title
+        # Title và Level info
         title_font = self.get_font(GameSettings.FONT_LARGE, bold=True)
         self.draw_text_with_shadow(screen, "TOWER WAR", (20, 10), Colors.BLUE, title_font)
+        
+        # Level info
+        if self.level_info and self.level_progress:
+            level_font = self.get_font(GameSettings.FONT_MEDIUM, bold=True)
+            level_text = f"{self.level_progress} - {self.level_info}"
+            self.draw_text_with_shadow(screen, level_text, (300, 15), Colors.RED, level_font)
         
         # Instructions
         if self.instructions_visible:
@@ -138,17 +151,15 @@ class GameHUD(UIView, Observer):
         self._draw_game_stats(screen)
     
     def _draw_instructions(self, screen: pygame.Surface):
-        """Vẽ hướng dẫn chơi với tiếng Việt"""
+        """Draw game instructions in English - compact"""
         instruction_font = self.get_font(GameSettings.FONT_SMALL)
         instructions = [
-            "• Nhấp vào tháp xanh để chọn",
-            "• Nhấp vào tháp khác để gửi quân",
-            "• Chiếm tất cả tháp đỏ để thắng",
+            "• Click blue tower → Click other tower to send troops • Capture all red towers to win",
         ]
         
-        start_y = 50
+        start_y = 45
         for i, instruction in enumerate(instructions):
-            self.draw_text_with_shadow(screen, instruction, (20, start_y + i * 20), 
+            self.draw_text_with_shadow(screen, instruction, (20, start_y + i * 15), 
                                      Colors.BLACK, instruction_font, 1)
     
     def _draw_game_stats(self, screen: pygame.Surface):
@@ -189,25 +200,50 @@ class GameOverScreen(UIView, Observer):
         self.winner = None
         self.game_stats = {}
         self.visible = False
+        self.is_level_complete = False
+        self.next_level_info = ""
+        self.all_levels_complete = False
+        
+        # Buttons
         self.restart_button = pygame.Rect(SCREEN_WIDTH//2 - 100, SCREEN_HEIGHT//2 + 100, 200, 50)
         self.menu_button = pygame.Rect(SCREEN_WIDTH//2 - 100, SCREEN_HEIGHT//2 + 170, 200, 50)
+        self.next_level_button = pygame.Rect(SCREEN_WIDTH//2 - 100, SCREEN_HEIGHT//2 + 50, 200, 50)
         self.mouse_pos = (0, 0)
     
     def update_observer(self, event_type: str, data: dict):
-        """Update khi game over"""
+        """Update khi game over hoặc level complete"""
         if event_type == "game_over":
             self.winner = data.get('winner')
             self.game_stats = data
             self.visible = True
+            self.is_level_complete = False
+            self.all_levels_complete = False
+        elif event_type == "level_complete":
+            self.winner = data.get('winner')
+            self.game_stats = data
+            self.visible = True
+            self.is_level_complete = True
+            self.next_level_info = data.get('next_level_info', '')
+            self.all_levels_complete = False
+        elif event_type == "all_levels_complete":
+            self.winner = data.get('winner')
+            self.game_stats = data
+            self.visible = True
+            self.is_level_complete = False
+            self.all_levels_complete = True
         elif event_type == "game_restarted":
             self.visible = False
+            self.is_level_complete = False
+            self.all_levels_complete = False
     
     def handle_click(self, pos: Tuple[int, int]) -> str:
         """
         Xử lý click vào buttons
         Returns: action name hoặc None
         """
-        if self.restart_button.collidepoint(pos):
+        if self.is_level_complete and self.next_level_button.collidepoint(pos):
+            return "restart"  # Start next level
+        elif self.restart_button.collidepoint(pos):
             return "restart"
         elif self.menu_button.collidepoint(pos):
             return "menu"
@@ -233,17 +269,23 @@ class GameOverScreen(UIView, Observer):
         pygame.draw.rect(screen, Colors.WHITE, panel_rect)
         pygame.draw.rect(screen, Colors.BLACK, panel_rect, 3)
         
-        # Winner text
+        # Winner text và level info
         title_font = self.get_font(GameSettings.FONT_LARGE, bold=True)
         
-        if self.winner == 'player':
-            title_text = "BẠN THẮNG!"
+        if self.all_levels_complete:
+            title_text = "CHÚC MỪNG! HOÀN THÀNH TẤT CẢ!"
+            title_color = Colors.BLUE
+        elif self.is_level_complete:
+            title_text = "HOÀN THÀNH LEVEL!"
+            title_color = Colors.BLUE
+        elif self.winner == 'player':
+            title_text = "YOU WIN!"
             title_color = Colors.BLUE
         elif self.winner == 'enemy':
-            title_text = "BẠN THUA!"
+            title_text = "YOU LOSE!"
             title_color = Colors.RED
         else:
-            title_text = "HÒA!"
+            title_text = "DRAW!"
             title_color = Colors.GRAY
         
         title_surface = title_font.render(title_text, True, title_color)
@@ -251,20 +293,41 @@ class GameOverScreen(UIView, Observer):
         title_pos = (SCREEN_WIDTH//2 - title_rect.width//2, SCREEN_HEIGHT//2 - 100)
         self.draw_text_with_shadow(screen, title_text, title_pos, title_color, title_font)
         
+        # Next level info
+        if self.is_level_complete and self.next_level_info:
+            info_font = self.get_font(GameSettings.FONT_MEDIUM)
+            info_text = f"Next: {self.next_level_info}"
+            info_pos = (SCREEN_WIDTH//2 - 150, SCREEN_HEIGHT//2 - 60)
+            self.draw_text_with_shadow(screen, info_text, info_pos, Colors.BLACK, info_font)
+        
         # Game statistics
         self._draw_final_stats(screen)
         
         # Buttons
-        restart_hover = self.restart_button.collidepoint(self.mouse_pos)
-        menu_hover = self.menu_button.collidepoint(self.mouse_pos)
-        
         button_font = self.get_font(GameSettings.FONT_MEDIUM, bold=True)
         
-        self.draw_button(screen, self.restart_button, "CHƠI LẠI", button_font,
-                        Colors.GREEN, Colors.WHITE, Colors.BLACK, restart_hover)
-        
-        self.draw_button(screen, self.menu_button, "MENU", button_font,
-                        Colors.GRAY, Colors.WHITE, Colors.BLACK, menu_hover)
+        if self.is_level_complete:
+            # Level complete buttons
+            next_hover = self.next_level_button.collidepoint(self.mouse_pos)
+            menu_hover = self.menu_button.collidepoint(self.mouse_pos)
+            
+            self.draw_button(screen, self.next_level_button, "NEXT LEVEL", button_font,
+                            Colors.GREEN, Colors.WHITE, Colors.BLACK, next_hover)
+            
+            self.draw_button(screen, self.menu_button, "MAIN MENU", button_font,
+                            Colors.GRAY, Colors.WHITE, Colors.BLACK, menu_hover)
+        else:
+            # Normal game over buttons
+            restart_hover = self.restart_button.collidepoint(self.mouse_pos)
+            menu_hover = self.menu_button.collidepoint(self.mouse_pos)
+            
+            restart_text = "RESTART LEVEL 1" if self.winner == 'enemy' else "RESTART"
+            
+            self.draw_button(screen, self.restart_button, restart_text, button_font,
+                            Colors.GREEN, Colors.WHITE, Colors.BLACK, restart_hover)
+            
+            self.draw_button(screen, self.menu_button, "MAIN MENU", button_font,
+                            Colors.GRAY, Colors.WHITE, Colors.BLACK, menu_hover)
     
     def _draw_final_stats(self, screen: pygame.Surface):
         """Vẽ thống kê cuối game"""
@@ -279,9 +342,9 @@ class GameOverScreen(UIView, Observer):
         seconds = duration_sec % 60
         
         stats = [
-            f"Thời gian: {minutes:02d}:{seconds:02d}",
-            f"Hành động: {self.game_stats.get('player_actions', 0)}",
-            f"Trận chiến: {self.game_stats.get('total_battles', 0)}",
+            f"Duration: {minutes:02d}:{seconds:02d}",
+            f"Actions: {self.game_stats.get('player_actions', 0)}",
+            f"Battles: {self.game_stats.get('total_battles', 0)}",
         ]
         
         start_y = SCREEN_HEIGHT//2 - 30
@@ -301,14 +364,14 @@ class PauseMenu(UIView, Observer):
         Observer.__init__(self)
         self.visible = False
         
-        # Buttons
-        button_width, button_height = 200, 50
+        # Buttons - làm lớn hơn và cách xa hơn
+        button_width, button_height = 250, 60  # Tăng từ 200x50 lên 250x60
         center_x = SCREEN_WIDTH // 2 - button_width // 2
-        start_y = SCREEN_HEIGHT // 2 - 100
+        start_y = SCREEN_HEIGHT // 2 - 80  # Điều chỉnh vị trí bắt đầu
         
         self.resume_button = pygame.Rect(center_x, start_y, button_width, button_height)
-        self.restart_button = pygame.Rect(center_x, start_y + 70, button_width, button_height)
-        self.menu_button = pygame.Rect(center_x, start_y + 140, button_width, button_height)
+        self.restart_button = pygame.Rect(center_x, start_y + 80, button_width, button_height)  # Tăng khoảng cách từ 70 lên 80
+        self.menu_button = pygame.Rect(center_x, start_y + 160, button_width, button_height)  # Tăng khoảng cách từ 140 lên 160
         
         self.mouse_pos = (0, 0)
     
@@ -347,9 +410,9 @@ class PauseMenu(UIView, Observer):
         overlay.fill(Colors.BLACK)
         screen.blit(overlay, (0, 0))
         
-        # Main panel với shadow
-        shadow_rect = pygame.Rect(SCREEN_WIDTH//2 - 152, SCREEN_HEIGHT//2 - 152, 304, 304)
-        panel_rect = pygame.Rect(SCREEN_WIDTH//2 - 150, SCREEN_HEIGHT//2 - 150, 300, 300)
+        # Main panel với shadow - làm lớn hơn
+        shadow_rect = pygame.Rect(SCREEN_WIDTH//2 - 202, SCREEN_HEIGHT//2 - 182, 404, 364)
+        panel_rect = pygame.Rect(SCREEN_WIDTH//2 - 200, SCREEN_HEIGHT//2 - 180, 400, 360)
         
         # Draw shadow
         pygame.draw.rect(screen, Colors.BLACK, shadow_rect, border_radius=10)
@@ -358,48 +421,48 @@ class PauseMenu(UIView, Observer):
         pygame.draw.rect(screen, Colors.WHITE, panel_rect, border_radius=10)
         pygame.draw.rect(screen, Colors.DARK_BLUE, panel_rect, 3, border_radius=10)
         
-        # Title
-        title_font = self.get_font(GameSettings.FONT_LARGE, bold=True)
+        # Title - tăng font size
+        title_font = self.get_font(48, bold=True)  # Tăng từ 36 lên 48
         title_text = "GAME PAUSED"
         title_surface = title_font.render(title_text, True, Colors.DARK_BLUE)
         title_rect = title_surface.get_rect()
-        title_pos = (SCREEN_WIDTH//2 - title_rect.width//2, SCREEN_HEIGHT//2 - 120)
+        title_pos = (SCREEN_WIDTH//2 - title_rect.width//2, SCREEN_HEIGHT//2 - 140)
         self.draw_text_with_shadow(screen, title_text, title_pos, Colors.DARK_BLUE, title_font)
         
-        # Subtitle
-        subtitle_font = self.get_font(GameSettings.FONT_SMALL)
-        subtitle_text = "Chọn một lựa chọn để tiếp tục"
+        # Subtitle - tăng font size
+        subtitle_font = self.get_font(20)  # Tăng từ 16 lên 20
+        subtitle_text = "Choose an option to continue"
         subtitle_surface = subtitle_font.render(subtitle_text, True, Colors.GRAY)
         subtitle_rect = subtitle_surface.get_rect()
-        subtitle_pos = (SCREEN_WIDTH//2 - subtitle_rect.width//2, SCREEN_HEIGHT//2 - 90)
+        subtitle_pos = (SCREEN_WIDTH//2 - subtitle_rect.width//2, SCREEN_HEIGHT//2 - 100)
         screen.blit(subtitle_surface, subtitle_pos)
         
-        # Buttons với animation
-        button_font = self.get_font(GameSettings.FONT_MEDIUM, bold=True)
+        # Buttons với animation - tăng font size
+        button_font = self.get_font(28, bold=True)  # Tăng từ 24 lên 28
         
         resume_hover = self.resume_button.collidepoint(self.mouse_pos)
         restart_hover = self.restart_button.collidepoint(self.mouse_pos)
         menu_hover = self.menu_button.collidepoint(self.mouse_pos)
         
         # Resume button - màu xanh lá
-        self.draw_button(screen, self.resume_button, "▶ TIẾP TỤC", button_font,
+        self.draw_button(screen, self.resume_button, "▶ CONTINUE", button_font,
                         Colors.GREEN if not resume_hover else Colors.LIGHT_GREEN, 
                         Colors.WHITE, Colors.BLACK, resume_hover)
         
         # Restart button - màu xanh dương
-        self.draw_button(screen, self.restart_button, "🔄 CHƠI LẠI", button_font,
+        self.draw_button(screen, self.restart_button, "🔄 RESTART", button_font,
                         Colors.BLUE if not restart_hover else Colors.LIGHT_BLUE, 
                         Colors.WHITE, Colors.BLACK, restart_hover)
         
         # Menu button - màu xám
-        self.draw_button(screen, self.menu_button, "🏠 MENU CHÍNH", button_font,
+        self.draw_button(screen, self.menu_button, "🏠 MAIN MENU", button_font,
                         Colors.GRAY if not menu_hover else Colors.LIGHT_GRAY, 
                         Colors.WHITE, Colors.BLACK, menu_hover)
         
-        # Controls hint
-        hint_font = self.get_font(GameSettings.FONT_SMALL)
-        hint_text = "ESC hoặc SPACE để tiếp tục • Q để về menu"
+        # Controls hint - tăng font size
+        hint_font = self.get_font(18)  # Tăng từ 16 lên 18
+        hint_text = "ESC or SPACE to continue • Q to main menu"
         hint_surface = hint_font.render(hint_text, True, Colors.GRAY)
         hint_rect = hint_surface.get_rect()
-        hint_pos = (SCREEN_WIDTH//2 - hint_rect.width//2, SCREEN_HEIGHT//2 + 120)
+        hint_pos = (SCREEN_WIDTH//2 - hint_rect.width//2, SCREEN_HEIGHT//2 + 140)  # Điều chỉnh vị trí xuống dưới
         screen.blit(hint_surface, hint_pos)

@@ -9,6 +9,7 @@ from ..models.base import Observer, Subject
 from ..models.tower import Tower, PlayerTower, EnemyTower
 from ..models.troop import Troop, PlayerTroop, EnemyTroop
 from ..controllers.ai_controller import AIController
+from ..controllers.level_manager import LevelManager
 from ..utils.constants import OwnerType, GameState, GameSettings
 
 class GameController(Subject, Observer):
@@ -38,6 +39,10 @@ class GameController(Subject, Observer):
         self._troops: List[Troop] = []
         self._selected_tower: Optional[Tower] = None
         self._winner: Optional[str] = None
+        self._game_ended = False  # Flag để tránh check win condition nhiều lần
+        
+        # Level management
+        self._level_manager = LevelManager()
         
         # Controllers
         self._ai_controller = AIController('medium')
@@ -64,22 +69,22 @@ class GameController(Subject, Observer):
         # Sử dụng Factory pattern concept
         tower_factory = TowerFactory()
         
-        # Player towers (moved down to avoid HUD overlap)
-        player_positions = [(150, 200), (150, 600)]
+        # Player towers (left side - farther from center)
+        player_positions = [(100, 200), (100, 600)]
         for x, y in player_positions:
             tower = tower_factory.create_player_tower(x, y)
             self._towers.append(tower)
         
-        # Enemy towers
-        enemy_positions = [(850, 200), (850, 600)]
+        # Enemy towers (right side - farther from center)
+        enemy_positions = [(900, 200), (900, 600)]
         for x, y in enemy_positions:
             tower = tower_factory.create_enemy_tower(x, y)
             self._towers.append(tower)
         
-        # Neutral towers (adjusted positions)
+        # Neutral towers (centered between players)
         neutral_positions = [
-            (500, 150), (200, 400), (800, 400),
-            (500, 350), (400, 600), (600, 600)
+            (500, 150), (250, 400), (750, 400),
+            (500, 350), (350, 600), (650, 600)
         ]
         for x, y in neutral_positions:
             tower = tower_factory.create_neutral_tower(x, y)
@@ -109,6 +114,83 @@ class GameController(Subject, Observer):
     def winner(self) -> Optional[str]:
         """Getter cho winner"""
         return self._winner
+    
+    @property
+    def level_manager(self) -> LevelManager:
+        """Getter cho level manager"""
+        return self._level_manager
+    
+    def get_current_level_info(self) -> str:
+        """Lấy thông tin level hiện tại"""
+        return self._level_manager.get_level_info()
+    
+    def get_level_progress(self) -> str:
+        """Lấy tiến độ level"""
+        return self._level_manager.get_progress()
+    
+    def advance_to_next_level(self):
+        """Chuyển sang level tiếp theo"""
+        if self._level_manager.complete_current_level():
+            # Nếu có level tiếp theo, bắt đầu level mới
+            self._init_new_level()
+            self._game_state = GameState.PLAYING
+            # Thông báo cho observer về level mới
+            self.notify("level_changed", {
+                "level": self._level_manager.current_level,
+                "level_info": self._level_manager.get_level_info()
+            })
+        else:
+            # Đã hoàn thành tất cả level
+            self._game_state = GameState.GAME_OVER
+            self.notify("all_levels_complete", {})
+    
+    def handle_level_complete_input(self, key):
+        """Xử lý input khi ở trạng thái level complete"""
+        if self._game_state == GameState.LEVEL_COMPLETE:
+            if key == pygame.K_SPACE:
+                # Continue to next level
+                self._init_new_level()
+                self._game_state = GameState.PLAYING
+                # Hide level complete dialog
+                self.notify("level_started", {
+                    "level": self._level_manager.current_level,
+                    "level_info": self._level_manager.get_level_info()
+                })
+            elif key == pygame.K_r:
+                # Restart from level 1
+                self.restart_game()
+    
+    def _init_new_level(self):
+        """Khởi tạo level mới"""
+        level_config = self._level_manager.get_current_level_config()
+        print(f"Initializing {level_config['name']}...")
+        
+        # Reset game objects
+        self._towers.clear()
+        self._troops.clear()
+        self._selected_tower = None
+        self._winner = None
+        
+        # Reset statistics cho level mới
+        self._game_start_time = pygame.time.get_ticks()
+        self._player_actions = 0
+        self._total_battles = 0
+        
+        # Setup AI theo level
+        self._ai_controller.set_difficulty(level_config['ai_difficulty'])
+        
+        # Tạo towers cho level mới
+        self._create_initial_towers_for_level(level_config)
+        self._setup_observers()
+        
+        # Reset AI
+        self._ai_controller.reset_stats()
+        
+        # Notify observers về level mới
+        self.notify("towers_updated", {"towers": self._towers})
+        self.notify("troops_updated", {"troops": self._troops})
+        
+        print(f"Level {self._level_manager.current_level} initialized successfully")
     
     def update_observer(self, event_type: str, data: dict):
         """
@@ -321,6 +403,10 @@ class GameController(Subject, Observer):
     
     def _check_win_condition(self):
         """Kiểm tra điều kiện thắng thua - Player vs Enemy (không quan tâm neutral)"""
+        # Nếu game đã kết thúc thì không check nữa
+        if self._game_ended or self._game_state in [GameState.GAME_OVER, GameState.LEVEL_COMPLETE]:
+            return
+            
         # Đếm towers theo owner
         owner_count = {}
         for tower in self._towers:
@@ -342,25 +428,45 @@ class GameController(Subject, Observer):
             winner = OwnerType.ENEMY
         
         if winner:
+            self._game_ended = True  # Đánh dấu game đã kết thúc
             print(f"WIN CONDITION MET! Winner: {winner}")
             old_state = self._game_state
-            self._game_state = GameState.GAME_OVER
+            
+            # Xử lý level progression
+            if winner == OwnerType.PLAYER:
+                # Player thắng - kiểm tra có level tiếp theo không
+                has_next_level = self._level_manager.complete_current_level()
+                completed_level = self._level_manager.current_level
+                
+                self._game_state = GameState.LEVEL_COMPLETE
+                self.notify("level_complete", {
+                    "winner": winner,
+                    "level": completed_level,  # Level vừa hoàn thành
+                    "has_next_level": has_next_level
+                })
+            else:
+                # Player thua
+                self._level_manager.reset_to_level_1()
+                self._game_state = GameState.GAME_OVER
+                
+                # Chỉ notify game_over khi player thua
+                self.notify("game_over", {
+                    "winner": winner,
+                    "game_duration": pygame.time.get_ticks() - self._game_start_time,
+                    "player_actions": self._player_actions,
+                    "total_battles": self._total_battles,
+                    "level": self._level_manager.current_level,
+                    "level_info": self._level_manager.get_level_info()
+                })
+            
             self._winner = winner
             
             print(f"Game state changed: {old_state} -> {self._game_state}")
             
-            # Notify về state change trước
+            # Notify về state change
             self.notify("game_state_changed", {
                 "old_state": old_state,
-                "new_state": GameState.GAME_OVER
-            })
-            
-            # Notify observers về game over
-            self.notify("game_over", {
-                "winner": self._winner,
-                "game_duration": pygame.time.get_ticks() - self._game_start_time,
-                "player_actions": self._player_actions,
-                "total_battles": self._total_battles
+                "new_state": self._game_state
             })
             
             print(f"Notifications sent - winner: {self._winner}")
@@ -368,8 +474,9 @@ class GameController(Subject, Observer):
             print("No winner yet, game continues")
     
     def restart_game(self):
-        """Restart game"""
-        print("Restarting game...")
+        """Restart game với level config hiện tại"""
+        level_config = self._level_manager.get_current_level_config()
+        print(f"Starting {level_config['name']}...")
         
         # Reset state
         old_state = self._game_state
@@ -378,14 +485,18 @@ class GameController(Subject, Observer):
         self._troops.clear()
         self._selected_tower = None
         self._winner = None
+        self._game_ended = False  # Reset flag
         
         # Reset statistics
         self._game_start_time = pygame.time.get_ticks()
         self._player_actions = 0
         self._total_battles = 0
         
-        # Recreate game objects
-        self._create_initial_towers()
+        # Setup AI theo level
+        self._ai_controller.set_difficulty(level_config['ai_difficulty'])
+        
+        # Recreate game objects theo level config
+        self._create_initial_towers_for_level(level_config)
         self._setup_observers()
         
         # Reset AI
@@ -399,7 +510,10 @@ class GameController(Subject, Observer):
             })
         
         # Notify observers về restart
-        self.notify("game_restarted", {})
+        self.notify("game_restarted", {
+            "level": self._level_manager.current_level,
+            "level_info": level_config['name']
+        })
         self.notify("towers_updated", {"towers": self._towers})
         self.notify("troops_updated", {"troops": self._troops})
         
@@ -407,6 +521,47 @@ class GameController(Subject, Observer):
         self.notify("game_resumed", {})
         
         print("Game restarted successfully")
+    
+    def _create_initial_towers_for_level(self, level_config: dict):
+        """Tạo towers ban đầu theo config của level"""
+        import random
+        
+        # Vị trí cố định cho player và enemy towers để tránh gần nhau
+        player_positions = [(100, 200), (100, 500), (120, 350)]
+        enemy_positions = [(900, 200), (900, 500), (880, 350)]
+        neutral_positions = [
+            (500, 150), (500, 450), (500, 600),
+            (350, 300), (650, 300), (400, 550), (600, 550)
+        ]
+        
+        # Tạo player towers
+        for i in range(level_config['player_towers']):
+            if i < len(player_positions):
+                x, y = player_positions[i]
+                tower = PlayerTower(x, y, level_config['initial_troops'])
+                self._towers.append(tower)
+        
+        # Tạo enemy towers
+        for i in range(level_config['enemy_towers']):
+            if i < len(enemy_positions):
+                x, y = enemy_positions[i]
+                enemy_troops = level_config.get('enemy_initial_troops', level_config['initial_troops'])
+                tower = EnemyTower(x, y, enemy_troops)
+                self._towers.append(tower)
+                
+        # Tạo neutral towers
+        random.shuffle(neutral_positions)  # Chỉ shuffle neutral positions
+        for i in range(level_config['neutral_towers']):
+            if i < len(neutral_positions):
+                x, y = neutral_positions[i]
+                tower = Tower(x, y, OwnerType.NEUTRAL, level_config['initial_troops'])
+                self._towers.append(tower)
+        
+        enemy_troops = level_config.get('enemy_initial_troops', level_config['initial_troops'])
+        player_troops = level_config['initial_troops']
+        print(f"Created level: {level_config['player_towers']} player towers ({player_troops} troops each), "
+              f"{level_config['enemy_towers']} enemy towers ({enemy_troops} troops each), "
+              f"{level_config['neutral_towers']} neutral towers")
     
     def pause_game(self):
         """Pause/unpause game"""

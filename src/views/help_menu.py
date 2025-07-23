@@ -46,7 +46,7 @@ class HelpMenu(UIView):
         
         # Title
         title_font = self.get_font(GameSettings.FONT_LARGE, bold=True)
-        title_text = "HƯỚNG DẪN CHƠI"
+        title_text = "HOW TO PLAY"
         title_surface = title_font.render(title_text, True, Colors.BLACK)
         title_rect = title_surface.get_rect()
         title_pos = (SCREEN_WIDTH//2 - title_rect.width//2, 80)
@@ -61,7 +61,7 @@ class HelpMenu(UIView):
         # Back button
         button_font = self.get_font(GameSettings.FONT_MEDIUM, bold=True)
         back_hover = self.back_button.collidepoint(self.mouse_pos)
-        self.draw_button(screen, self.back_button, "QUAY LẠI", button_font,
+        self.draw_button(screen, self.back_button, "BACK", button_font,
                         Colors.GRAY, Colors.WHITE, Colors.BLACK, back_hover)
     
     def _draw_game_rules(self, screen: pygame.Surface):
@@ -70,20 +70,20 @@ class HelpMenu(UIView):
         text_font = self.get_font(GameSettings.FONT_SMALL)
         
         # Section title
-        section_title = "LUẬT CHƠI:"
+        section_title = "GAME RULES:"
         section_surface = section_font.render(section_title, True, Colors.BLUE)
         screen.blit(section_surface, (80, 140))
         
         # Rules
         rules = [
-            "• Mục tiêu: Chiếm tất cả tháp của đối phương (đỏ → xanh hoặc xanh → đỏ)",
-            "• Tháp xanh: Của bạn (bắt đầu với 10 quân)",
-            "• Tháp đỏ: Của AI (bắt đầu với 1 quân)", 
-            "• Tháp xám: Trung lập (5-15 quân ngẫu nhiên)",
-            "• Tháp tự động tăng 1 quân mỗi giây (tối đa 50)",
-            "• Gửi quân: Chọn tháp xanh → click tháp đích",
-            "• Chiến đấu: Quân ít hơn bị tiêu diệt, quân nhiều hơn giảm = |lớn - bé|",
-            "• Quân trên đường có thể đánh nhau khi gặp quân địch"
+            "• Goal: Capture all enemy towers (red → blue or blue → red)",
+            "• Blue towers: Yours (start with varying troops)",
+            "• Red towers: AI's (start with 50% of your troops)", 
+            "• Gray towers: Neutral (5-15 random troops)",
+            "• Towers auto-generate 1 troop per second (max 50)",
+            "• Send troops: Click blue tower → click target tower",
+            "• Combat: Fewer troops eliminated, more troops reduced by difference",
+            "• Troops on path can fight when meeting enemy troops"
         ]
         
         start_y = 170
@@ -97,20 +97,16 @@ class HelpMenu(UIView):
         text_font = self.get_font(GameSettings.FONT_SMALL)
         
         # Section title
-        section_title = "ĐIỀU KHIỂN:"
+        section_title = "CONTROLS:"
         section_surface = section_font.render(section_title, True, Colors.BLUE)
         screen.blit(section_surface, (80, 380))
         
         # Controls
         controls = [
-            "• Chuột trái: Chọn tháp và gửi quân",
-            "• ESC: Tạm dừng game",
-            "• R: Chơi lại (khi game over)",
-            "• F1: Bật/tắt debug mode",
-            "• F2: Hiện/ẩn grid",
-            "• F3: Chụp ảnh màn hình",
-            "• 1/2/3: Thay đổi độ khó AI (Dễ/Trung bình/Khó)",
-            "• Space: Tiếp tục (khi pause)"
+            "• Left mouse: Select tower and send troops",
+            "• ESC: Pause game",
+            "• R: Restart (when game over)",
+            "• Space: Continue (when paused)"
         ]
         
         start_y = 410

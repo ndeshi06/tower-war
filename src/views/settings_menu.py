@@ -19,18 +19,24 @@ class SettingsMenu(UIView):
         self.sound_enabled = True
         self.music_enabled = True
         
-        # Buttons
+        # Buttons - căn giữa chính xác
         button_width, button_height = 250, 50
-        center_x = SCREEN_WIDTH // 2 - button_width // 2
+        center_x = SCREEN_WIDTH // 2
         start_y = SCREEN_HEIGHT // 2 - 100
         
-        self.ai_easy_button = pygame.Rect(center_x - 200, start_y, 120, button_height)
-        self.ai_medium_button = pygame.Rect(center_x - 60, start_y, 120, button_height)
-        self.ai_hard_button = pygame.Rect(center_x + 80, start_y, 120, button_height)
+        # AI difficulty buttons - căn giữa theo hàng ngang
+        ai_button_width = 100
+        total_ai_width = 3 * ai_button_width + 2 * 20  # 3 buttons + 2 spaces
+        ai_start_x = center_x - total_ai_width // 2
         
-        self.sound_button = pygame.Rect(center_x, start_y + 80, button_width, button_height)
-        self.music_button = pygame.Rect(center_x, start_y + 140, button_width, button_height)
-        self.back_button = pygame.Rect(center_x, start_y + 220, button_width, button_height)
+        self.ai_easy_button = pygame.Rect(ai_start_x, start_y, ai_button_width, button_height)
+        self.ai_medium_button = pygame.Rect(ai_start_x + ai_button_width + 20, start_y, ai_button_width, button_height)
+        self.ai_hard_button = pygame.Rect(ai_start_x + 2 * (ai_button_width + 20), start_y, ai_button_width, button_height)
+        
+        # Other buttons - căn giữa
+        self.sound_button = pygame.Rect(center_x - button_width // 2, start_y + 80, button_width, button_height)
+        self.music_button = pygame.Rect(center_x - button_width // 2, start_y + 140, button_width, button_height)
+        self.back_button = pygame.Rect(center_x - button_width // 2, start_y + 220, button_width, button_height)
         
         self.mouse_pos = (0, 0)
     
@@ -77,7 +83,7 @@ class SettingsMenu(UIView):
         
         # Title
         title_font = self.get_font(GameSettings.FONT_LARGE, bold=True)
-        title_text = "CÀI ĐẶT"
+        title_text = "SETTINGS"
         title_surface = title_font.render(title_text, True, Colors.BLACK)
         title_rect = title_surface.get_rect()
         title_pos = (SCREEN_WIDTH//2 - title_rect.width//2, SCREEN_HEIGHT//2 - 160)
@@ -92,7 +98,7 @@ class SettingsMenu(UIView):
         # Back button
         button_font = self.get_font(GameSettings.FONT_MEDIUM, bold=True)
         back_hover = self.back_button.collidepoint(self.mouse_pos)
-        self.draw_button(screen, self.back_button, "QUAY LẠI", button_font,
+        self.draw_button(screen, self.back_button, "BACK", button_font,
                         Colors.GRAY, Colors.WHITE, Colors.BLACK, back_hover)
     
     def _draw_ai_difficulty(self, screen: pygame.Surface):
@@ -100,16 +106,11 @@ class SettingsMenu(UIView):
         label_font = self.get_font(GameSettings.FONT_MEDIUM)
         button_font = self.get_font(GameSettings.FONT_SMALL, bold=True)
         
-        # Label
-        label_text = "Độ khó AI:"
-        label_surface = label_font.render(label_text, True, Colors.BLACK)
-        screen.blit(label_surface, (SCREEN_WIDTH//2 - 250, SCREEN_HEIGHT//2 - 80))
-        
         # Buttons
         difficulties = [
-            (self.ai_easy_button, "DỄ", "easy"),
-            (self.ai_medium_button, "TRUNG BÌNH", "medium"),
-            (self.ai_hard_button, "KHÓ", "hard")
+            (self.ai_easy_button, "EASY", "easy"),
+            (self.ai_medium_button, "MEDIUM", "medium"),
+            (self.ai_hard_button, "HARD", "hard")
         ]
         
         for button_rect, text, difficulty in difficulties:
@@ -126,7 +127,7 @@ class SettingsMenu(UIView):
         button_font = self.get_font(GameSettings.FONT_MEDIUM, bold=True)
         
         # Sound button
-        sound_text = f"ÂM THANH: {'BẬT' if self.sound_enabled else 'TẮT'}"
+        sound_text = f"SOUND: {'ON' if self.sound_enabled else 'OFF'}"
         sound_hover = self.sound_button.collidepoint(self.mouse_pos)
         sound_color = Colors.GREEN if self.sound_enabled else Colors.RED
         
@@ -134,7 +135,7 @@ class SettingsMenu(UIView):
                         sound_color, Colors.WHITE, Colors.BLACK, sound_hover)
         
         # Music button
-        music_text = f"NHẠC NỀN: {'BẬT' if self.music_enabled else 'TẮT'}"
+        music_text = f"MUSIC: {'ON' if self.music_enabled else 'OFF'}"
         music_hover = self.music_button.collidepoint(self.mouse_pos)
         music_color = Colors.GREEN if self.music_enabled else Colors.RED
         

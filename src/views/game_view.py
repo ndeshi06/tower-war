@@ -39,6 +39,15 @@ class GameView(Observer):
         self.selection_pulse_time = 0
         self.show_grid = False
         
+        # Level complete dialog
+        self.show_level_complete_dialog = False
+        self.level_complete_data = None
+        
+        # Win/lose dialogs
+        self.show_win_dialog = False
+        self.show_lose_dialog = False
+        self.winner = None
+        
         # Performance optimization
         self.dirty_rects = []
     
@@ -62,12 +71,23 @@ class GameView(Observer):
             self.game_over_screen.update_observer(event_type, data)
             print(f"GameView: Game over! Winner: {data.get('winner')}")
         
+        elif event_type == "level_complete":
+            self.game_state = GameState.LEVEL_COMPLETE
+            self.game_over_screen.update_observer(event_type, data)
+            print(f"GameView: Level complete! Next: {data.get('next_level_info')}")
+        
+        elif event_type == "all_levels_complete":
+            self.game_state = GameState.GAME_OVER
+            self.game_over_screen.update_observer(event_type, data)
+            print("GameView: All levels completed!")
+        
         elif event_type == "game_restarted":
             self.game_over_screen.update_observer(event_type, data)
             # Reset game view state
             self.game_state = GameState.PLAYING
             self.pause_menu.visible = False
-            print("GameView: Game restarted - pause menu hidden")
+            level_info = data.get('level_info', '')
+            print(f"GameView: Game restarted - {level_info}")
         
         elif event_type == "game_stats_updated":
             self.hud.update_observer(event_type, data)
@@ -80,6 +100,34 @@ class GameView(Observer):
         elif event_type == "game_resumed":
             self.pause_menu.update_observer(event_type, data)
             print("GameView: Game resumed - hiding pause menu")
+        
+        # Handle level complete
+        elif event_type == "level_complete":
+            self.game_state = GameState.LEVEL_COMPLETE
+            self.show_level_complete_dialog = True
+            self.level_complete_data = data
+            print(f"GameView: Level complete - Player wins, advancing to {data.get('next_level_info', 'next level')}")
+        
+        # Handle all levels complete
+        elif event_type == "all_levels_complete":
+            self.game_state = GameState.GAME_OVER
+            self.show_win_dialog = True
+            self.winner = data.get('winner')
+            print("GameView: All levels completed!")
+        
+        # Handle level started (ẩn level complete dialog)
+        elif event_type == "level_started":
+            self.game_state = GameState.PLAYING
+            self.show_level_complete_dialog = False
+            self.level_complete_data = None
+            print(f"GameView: Level {data.get('level', '')} started - {data.get('level_info', '')}")
+        
+        # Handle level started (hide level complete dialog)
+        elif event_type == "level_started":
+            self.show_level_complete_dialog = False
+            self.level_complete_data = None
+            self.game_state = GameState.PLAYING
+            print(f"GameView: Level {data.get('level')} started")
     
     def set_towers(self, towers: List[Tower]):
         """Update towers list"""
@@ -329,13 +377,57 @@ class GameView(Observer):
         # Draw HUD
         self.hud.draw(self.screen)
         
+        # Draw level complete dialog
+        if self.show_level_complete_dialog and self.level_complete_data:
+            self._draw_level_complete_dialog()
+        
         # Draw game over screen if game ended
-        if self.game_state == GameState.GAME_OVER:
+        elif self.game_state == GameState.GAME_OVER:
             self.game_over_screen.draw(self.screen)
         
         # Draw pause menu if paused
         if self.game_state == GameState.PAUSED:
             self.pause_menu.draw(self.screen)
+    
+    def _draw_level_complete_dialog(self):
+        """Vẽ dialog khi hoàn thành level"""
+        # Semi-transparent overlay
+        overlay = pygame.Surface((SCREEN_WIDTH, SCREEN_HEIGHT), pygame.SRCALPHA)
+        overlay.fill((0, 0, 0, 128))  # Black with 50% alpha
+        self.screen.blit(overlay, (0, 0))
+        
+        # Dialog box
+        dialog_width = 400
+        dialog_height = 200
+        dialog_x = (SCREEN_WIDTH - dialog_width) // 2
+        dialog_y = (SCREEN_HEIGHT - dialog_height) // 2
+        
+        dialog_rect = pygame.Rect(dialog_x, dialog_y, dialog_width, dialog_height)
+        pygame.draw.rect(self.screen, Colors.WHITE, dialog_rect)
+        pygame.draw.rect(self.screen, Colors.BLACK, dialog_rect, 3)
+        
+        # Title
+        font_title = pygame.font.Font(None, 36)
+        title_text = font_title.render("Level Complete!", True, Colors.GREEN)
+        title_rect = title_text.get_rect(center=(dialog_x + dialog_width//2, dialog_y + 40))
+        self.screen.blit(title_text, title_rect)
+        
+        # Next level info
+        font_text = pygame.font.Font(None, 24)
+        next_level_info = self.level_complete_data.get('next_level_info', 'Next Level')
+        info_text = font_text.render(f"Starting: {next_level_info}", True, Colors.BLUE)
+        info_rect = info_text.get_rect(center=(dialog_x + dialog_width//2, dialog_y + 80))
+        self.screen.blit(info_text, info_rect)
+        
+        # Continue button instruction
+        continue_text = font_text.render("Press SPACE to continue", True, Colors.BLACK)
+        continue_rect = continue_text.get_rect(center=(dialog_x + dialog_width//2, dialog_y + 120))
+        self.screen.blit(continue_text, continue_rect)
+        
+        # Restart instruction
+        restart_text = font_text.render("Press R to restart from Level 1", True, Colors.DARK_GRAY)
+        restart_rect = restart_text.get_rect(center=(dialog_x + dialog_width//2, dialog_y + 150))
+        self.screen.blit(restart_text, restart_rect)
     
     def draw_debug_info(self, debug_info: dict):
         """
