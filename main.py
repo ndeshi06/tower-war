@@ -242,12 +242,6 @@ class TowerWarGame:
         """
         if not self.in_menu and self.controller:
             self.controller.update(dt)
-            
-            # Check for game over
-            if self.controller.game_state == GameState.GAME_OVER:
-                # Auto return to menu after a short delay
-                pygame.time.wait(2000)
-                self.return_to_menu()
         
         # Update menu if in menu
         if self.in_menu:

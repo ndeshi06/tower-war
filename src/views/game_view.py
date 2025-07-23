@@ -58,7 +58,9 @@ class GameView(Observer):
             self.troops = data.get('troops', [])
         
         elif event_type == "game_over":
+            self.game_state = GameState.GAME_OVER  # Update game state
             self.game_over_screen.update_observer(event_type, data)
+            print(f"GameView: Game over! Winner: {data.get('winner')}")
         
         elif event_type == "game_restarted":
             self.game_over_screen.update_observer(event_type, data)
