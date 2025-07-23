@@ -181,5 +181,3 @@ Project này implement **15+ Design Patterns** và demonstrate tất cả **4 OO
 2. **Inheritance** - Class hierarchies
 3. **Polymorphism** - Method overriding, interface implementation  
 4. **Abstraction** - Abstract classes và interfaces
-
-Đây là một ví dụ comprehensive về việc áp dụng OOP principles và Design Patterns trong thực tế!

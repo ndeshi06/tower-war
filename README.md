@@ -71,7 +71,7 @@ Chiếm tất cả các tower trên bản đồ để giành chiến thắng.
    - Mỗi tower có một số lượng quân nhất định
    - Tower của player và enemy sẽ tự động tăng 1 quân mỗi giây
    - Tower trung lập không tự động tăng quân
-   - Giới hạn tối đa: 100 quân/tower
+   - Giới hạn tối đa: 50 quân/tower
 
 3. **Điều khiển:**
    - Click vào tower xanh của bạn để chọn
@@ -84,8 +84,8 @@ Chiếm tất cả các tower trên bản đồ để giành chiến thắng.
    - Nếu số quân tower <= 0: Tower đổi màu theo phe tấn công
 
 5. **Điều kiện thắng thua:**
-   - Thắng: Khi tất cả towers đều thuộc về bạn (màu xanh)
-   - Thua: Khi tất cả towers đều thuộc về AI (màu đỏ)
+   - Thắng: Khi tất cả towers đỏ đều thuộc về bạn (màu xanh)
+   - Thua: Khi tất cả towers xanh đều thuộc về AI (màu đỏ)
 
 ## Cài đặt và chạy
 
