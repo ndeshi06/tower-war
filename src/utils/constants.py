@@ -15,9 +15,11 @@ class Colors:
     GRAY = (128, 128, 128)    # Màu neutral
     WHITE = (255, 255, 255)
     BLACK = (0, 0, 0)
-    GREEN = (0, 255, 0)
+    GREEN = (0, 200, 0)       # Màu xanh lá đậm
+    LIGHT_GREEN = (144, 238, 144)  # Màu xanh lá nhạt
     LIGHT_BLUE = (173, 216, 230)
     DARK_BLUE = (0, 0, 139)
+    LIGHT_GRAY = (192, 192, 192)   # Màu xám nhạt
 
 # Cài đặt game
 class GameSettings:

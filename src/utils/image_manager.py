@@ -87,6 +87,34 @@ class ImageManager:
         surface.fill(color)
         return surface
     
+    def get_image(self, image_name: str, size: Optional[tuple] = None) -> Optional[pygame.Surface]:
+        """
+        Generic method để get image theo tên
+        Tự động map tên đến filename tương ứng
+        """
+        # Map image names to filenames
+        name_to_file = {
+            'background_menu': 'background_menu.png',
+            'background_game': 'background_game.png',
+            'tower_player': 'tower_player.png',
+            'tower_enemy': 'tower_enemy.png', 
+            'tower_neutral': 'tower_neutral.png'
+        }
+        
+        filename = name_to_file.get(image_name)
+        if filename:
+            # Determine size based on image type
+            if not size:
+                if 'background' in image_name:
+                    size = (SCREEN_WIDTH, SCREEN_HEIGHT)
+                elif 'tower' in image_name:
+                    size = (60, 60)
+            
+            return self.load_image(filename, size)
+        
+        # If no mapping found, try loading directly
+        return self.load_image(f"{image_name}.png", size)
+
     def get_tower_placeholder(self, tower_type: str) -> pygame.Surface:
         """Get placeholder tower image khi không có file"""
         from ..utils.constants import Colors

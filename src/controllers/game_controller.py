@@ -332,6 +332,8 @@ class GameController(Subject, Observer):
         player_towers = owner_count.get(OwnerType.PLAYER, 0)
         enemy_towers = owner_count.get(OwnerType.ENEMY, 0)
         
+        print(f"Player towers: {player_towers}, Enemy towers: {enemy_towers}")
+        
         # Kiểm tra win condition: một bên không còn tower nào
         winner = None
         if player_towers > 0 and enemy_towers == 0:
@@ -340,14 +342,16 @@ class GameController(Subject, Observer):
             winner = OwnerType.ENEMY
         
         if winner:
+            print(f"WIN CONDITION MET! Winner: {winner}")
+            old_state = self._game_state
             self._game_state = GameState.GAME_OVER
             self._winner = winner
             
-            print(f"Game Over! Winner: {self._winner}")
+            print(f"Game state changed: {old_state} -> {self._game_state}")
             
             # Notify về state change trước
             self.notify("game_state_changed", {
-                "old_state": GameState.PLAYING,
+                "old_state": old_state,
                 "new_state": GameState.GAME_OVER
             })
             
@@ -358,10 +362,17 @@ class GameController(Subject, Observer):
                 "player_actions": self._player_actions,
                 "total_battles": self._total_battles
             })
+            
+            print(f"Notifications sent - winner: {self._winner}")
+        else:
+            print("No winner yet, game continues")
     
     def restart_game(self):
         """Restart game"""
+        print("Restarting game...")
+        
         # Reset state
+        old_state = self._game_state
         self._game_state = GameState.PLAYING
         self._towers.clear()
         self._troops.clear()
@@ -380,15 +391,45 @@ class GameController(Subject, Observer):
         # Reset AI
         self._ai_controller.reset_stats()
         
-        # Notify observers
+        # Notify observers về state change nếu cần
+        if old_state != GameState.PLAYING:
+            self.notify("game_state_changed", {
+                "old_state": old_state,
+                "new_state": GameState.PLAYING
+            })
+        
+        # Notify observers về restart
         self.notify("game_restarted", {})
+        self.notify("towers_updated", {"towers": self._towers})
+        self.notify("troops_updated", {"troops": self._troops})
+        
+        # Ẩn pause menu nếu đang hiển thị
+        self.notify("game_resumed", {})
+        
+        print("Game restarted successfully")
     
     def pause_game(self):
         """Pause/unpause game"""
+        old_state = self._game_state
+        
         if self._game_state == GameState.PLAYING:
             self._game_state = GameState.PAUSED
+            print("Game paused")
         elif self._game_state == GameState.PAUSED:
             self._game_state = GameState.PLAYING
+            print("Game resumed")
+        
+        # Notify observers về state change
+        self.notify("game_state_changed", {
+            "old_state": old_state,
+            "new_state": self._game_state
+        })
+        
+        # Emit specific events for pause menu
+        if self._game_state == GameState.PAUSED:
+            self.notify("game_paused", {})
+        else:
+            self.notify("game_resumed", {})
     
     def get_game_stats(self) -> dict:
         """Lấy thống kê game"""

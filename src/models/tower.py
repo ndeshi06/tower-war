@@ -18,6 +18,10 @@ class Tower(GameObject, Clickable, Subject):
         GameObject.__init__(self, x, y)
         Subject.__init__(self)
         
+        # Load image manager
+        from ..utils.image_manager import ImageManager
+        self.image_manager = ImageManager()
+        
         # Encapsulation - private và protected attributes
         self.__owner = owner
         self.__troops = troops
@@ -137,25 +141,34 @@ class Tower(GameObject, Clickable, Subject):
     def draw(self, screen: pygame.Surface):
         """
         Override abstract method từ GameObject
-        Vẽ tower lên screen
+        Vẽ tower lên screen với image nếu có
         """
         if not self.active:
             return
             
+        # Lấy image dựa trên owner
+        image_name = f"tower_{self.__owner}"
+        tower_image = self.image_manager.get_image(image_name)
+        
+        if tower_image:
+            # Vẽ bằng image
+            image_rect = tower_image.get_rect(center=(int(self.x), int(self.y)))
+            screen.blit(tower_image, image_rect)
+        else:
+            # Fallback: vẽ bằng circle như cũ
+            color = self.get_color()
+            pygame.draw.circle(screen, color, 
+                             (int(self.x), int(self.y)), 
+                             self.__radius)
+            pygame.draw.circle(screen, Colors.BLACK, 
+                             (int(self.x), int(self.y)), 
+                             self.__radius, 2)
+        
         # Vẽ selection highlight
         if self._selected:
             pygame.draw.circle(screen, Colors.WHITE, 
                              (int(self.x), int(self.y)), 
                              self.__radius + 5, 3)
-        
-        # Vẽ tower
-        color = self.get_color()
-        pygame.draw.circle(screen, color, 
-                         (int(self.x), int(self.y)), 
-                         self.__radius)
-        pygame.draw.circle(screen, Colors.BLACK, 
-                         (int(self.x), int(self.y)), 
-                         self.__radius, 2)
         
         # Vẽ số quân với font đẹp hơn
         self.__draw_troops_text(screen)

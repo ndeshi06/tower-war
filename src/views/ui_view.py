@@ -143,7 +143,7 @@ class GameHUD(UIView, Observer):
         instructions = [
             "• Nhấp vào tháp xanh để chọn",
             "• Nhấp vào tháp khác để gửi quân",
-            "• Chiếm tất cả tháp để thắng"
+            "• Chiếm tất cả tháp đỏ để thắng",
         ]
         
         start_y = 50
@@ -343,35 +343,63 @@ class PauseMenu(UIView, Observer):
         
         # Semi-transparent overlay
         overlay = pygame.Surface((SCREEN_WIDTH, SCREEN_HEIGHT))
-        overlay.set_alpha(150)
+        overlay.set_alpha(180)  # Tăng độ mờ
         overlay.fill(Colors.BLACK)
         screen.blit(overlay, (0, 0))
         
-        # Main panel
+        # Main panel với shadow
+        shadow_rect = pygame.Rect(SCREEN_WIDTH//2 - 152, SCREEN_HEIGHT//2 - 152, 304, 304)
         panel_rect = pygame.Rect(SCREEN_WIDTH//2 - 150, SCREEN_HEIGHT//2 - 150, 300, 300)
-        pygame.draw.rect(screen, Colors.WHITE, panel_rect)
-        pygame.draw.rect(screen, Colors.BLACK, panel_rect, 3)
+        
+        # Draw shadow
+        pygame.draw.rect(screen, Colors.BLACK, shadow_rect, border_radius=10)
+        
+        # Draw main panel với gradient effect
+        pygame.draw.rect(screen, Colors.WHITE, panel_rect, border_radius=10)
+        pygame.draw.rect(screen, Colors.DARK_BLUE, panel_rect, 3, border_radius=10)
         
         # Title
         title_font = self.get_font(GameSettings.FONT_LARGE, bold=True)
-        title_text = "PAUSE"
-        title_surface = title_font.render(title_text, True, Colors.BLACK)
+        title_text = "GAME PAUSED"
+        title_surface = title_font.render(title_text, True, Colors.DARK_BLUE)
         title_rect = title_surface.get_rect()
         title_pos = (SCREEN_WIDTH//2 - title_rect.width//2, SCREEN_HEIGHT//2 - 120)
-        self.draw_text_with_shadow(screen, title_text, title_pos, Colors.BLACK, title_font)
+        self.draw_text_with_shadow(screen, title_text, title_pos, Colors.DARK_BLUE, title_font)
         
-        # Buttons
+        # Subtitle
+        subtitle_font = self.get_font(GameSettings.FONT_SMALL)
+        subtitle_text = "Chọn một lựa chọn để tiếp tục"
+        subtitle_surface = subtitle_font.render(subtitle_text, True, Colors.GRAY)
+        subtitle_rect = subtitle_surface.get_rect()
+        subtitle_pos = (SCREEN_WIDTH//2 - subtitle_rect.width//2, SCREEN_HEIGHT//2 - 90)
+        screen.blit(subtitle_surface, subtitle_pos)
+        
+        # Buttons với animation
         button_font = self.get_font(GameSettings.FONT_MEDIUM, bold=True)
         
         resume_hover = self.resume_button.collidepoint(self.mouse_pos)
         restart_hover = self.restart_button.collidepoint(self.mouse_pos)
         menu_hover = self.menu_button.collidepoint(self.mouse_pos)
         
-        self.draw_button(screen, self.resume_button, "TIẾP TỤC", button_font,
-                        Colors.GREEN, Colors.WHITE, Colors.BLACK, resume_hover)
+        # Resume button - màu xanh lá
+        self.draw_button(screen, self.resume_button, "▶ TIẾP TỤC", button_font,
+                        Colors.GREEN if not resume_hover else Colors.LIGHT_GREEN, 
+                        Colors.WHITE, Colors.BLACK, resume_hover)
         
-        self.draw_button(screen, self.restart_button, "CHƠI LẠI", button_font,
-                        Colors.BLUE, Colors.WHITE, Colors.BLACK, restart_hover)
+        # Restart button - màu xanh dương
+        self.draw_button(screen, self.restart_button, "🔄 CHƠI LẠI", button_font,
+                        Colors.BLUE if not restart_hover else Colors.LIGHT_BLUE, 
+                        Colors.WHITE, Colors.BLACK, restart_hover)
         
-        self.draw_button(screen, self.menu_button, "MENU", button_font,
-                        Colors.GRAY, Colors.WHITE, Colors.BLACK, menu_hover)
+        # Menu button - màu xám
+        self.draw_button(screen, self.menu_button, "🏠 MENU CHÍNH", button_font,
+                        Colors.GRAY if not menu_hover else Colors.LIGHT_GRAY, 
+                        Colors.WHITE, Colors.BLACK, menu_hover)
+        
+        # Controls hint
+        hint_font = self.get_font(GameSettings.FONT_SMALL)
+        hint_text = "ESC hoặc SPACE để tiếp tục • Q để về menu"
+        hint_surface = hint_font.render(hint_text, True, Colors.GRAY)
+        hint_rect = hint_surface.get_rect()
+        hint_pos = (SCREEN_WIDTH//2 - hint_rect.width//2, SCREEN_HEIGHT//2 + 120)
+        screen.blit(hint_surface, hint_pos)

@@ -104,18 +104,11 @@ python main.py
 ### Game Controls
 - **Click chuột trái**: Chọn tower và gửi quân
 - **ESC**: Pause/Resume game
-- **R**: Chơi lại khi game kết thúc
-- **Space**: Resume từ pause
-
-### Debug Controls
-- **F1**: Toggle debug mode
-- **F2**: Toggle grid display  
-- **F3**: Capture screenshot
 
 ### AI Difficulty
-- **1**: Easy mode
-- **2**: Medium mode (default)
-- **3**: Hard mode
+- **Easy mode**
+- **Medium mode**
+- **Hard mode**
 
 ## Chiến thuật
 

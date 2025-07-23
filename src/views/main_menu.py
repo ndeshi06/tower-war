@@ -38,7 +38,7 @@ class MainMenu(UIView):
     
     def _load_background(self):
         """Load background image hoặc tạo gradient background"""
-        self.background = self.image_manager.get_background()
+        self.background = self.image_manager.get_image("background_menu")
         
         if not self.background:
             # Tạo gradient background nếu không có file
@@ -114,7 +114,7 @@ class MainMenu(UIView):
         self.draw_text_with_shadow(screen, title_text, title_pos, Colors.WHITE, title_font, 4)
         
         # Subtitle
-        subtitle_text = "OOP Edition"
+        subtitle_text = "Classic Edition"
         subtitle_surface = subtitle_font.render(subtitle_text, True, Colors.LIGHT_BLUE)
         subtitle_rect = subtitle_surface.get_rect()
         subtitle_pos = (SCREEN_WIDTH//2 - subtitle_rect.width//2, title_pos[1] + title_rect.height + 10)
@@ -152,7 +152,7 @@ class MainMenu(UIView):
         footer_texts = [
             "Sử dụng chuột để chơi",
             "ESC - Pause | F1 - Debug | 1/2/3 - AI Difficulty",
-            "Phát triển bởi OOP Principles & Design Patterns"
+            "Phát triển bởi Group 6 - OOP"
         ]
         
         start_y = SCREEN_HEIGHT - 80

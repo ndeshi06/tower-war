@@ -20,6 +20,11 @@ class GameView(Observer):
         self.screen = screen
         self.background_color = Colors.WHITE
         
+        # Load background image
+        from ..utils.image_manager import ImageManager
+        self.image_manager = ImageManager()
+        self.background_image = self.image_manager.get_image("background_game")
+        
         # UI Components
         self.hud = GameHUD()
         self.game_over_screen = GameOverScreen()
@@ -44,6 +49,7 @@ class GameView(Observer):
         """
         if event_type == "game_state_changed":
             self.game_state = data.get('new_state', GameState.PLAYING)
+            print(f"GameView: Game state changed to {self.game_state}")
         
         elif event_type == "towers_updated":
             self.towers = data.get('towers', [])
@@ -56,9 +62,22 @@ class GameView(Observer):
         
         elif event_type == "game_restarted":
             self.game_over_screen.update_observer(event_type, data)
+            # Reset game view state
+            self.game_state = GameState.PLAYING
+            self.pause_menu.visible = False
+            print("GameView: Game restarted - pause menu hidden")
         
         elif event_type == "game_stats_updated":
             self.hud.update_observer(event_type, data)
+        
+        # Forward pause/resume events to pause menu
+        elif event_type == "game_paused":
+            self.pause_menu.update_observer(event_type, data)
+            print("GameView: Game paused - showing pause menu")
+        
+        elif event_type == "game_resumed":
+            self.pause_menu.update_observer(event_type, data)
+            print("GameView: Game resumed - hiding pause menu")
     
     def set_towers(self, towers: List[Tower]):
         """Update towers list"""
@@ -125,8 +144,11 @@ class GameView(Observer):
         pygame.display.flip()
     
     def _clear_screen(self):
-        """Clear screen với background color"""
-        self.screen.fill(self.background_color)
+        """Clear screen với background color hoặc background image"""
+        if self.background_image:
+            self.screen.blit(self.background_image, (0, 0))
+        else:
+            self.screen.fill(self.background_color)
     
     def _draw_background(self):
         """Draw background elements như grid"""

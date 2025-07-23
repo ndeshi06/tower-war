@@ -81,6 +81,18 @@ class MenuManager:
         
         return None
     
+    def handle_event(self, event: pygame.event.Event) -> Optional[str]:
+        """Handle pygame events"""
+        if event.type == pygame.MOUSEBUTTONDOWN:
+            if event.button == 1:  # Left click
+                return self.handle_click(event.pos)
+        elif event.type == pygame.MOUSEMOTION:
+            self.update_mouse_pos(event.pos)
+        elif event.type == pygame.KEYDOWN:
+            return self.handle_key(event.key)
+        
+        return None
+    
     def handle_key(self, key: int) -> Optional[str]:
         """Handle keyboard input trong menu"""
         if key == pygame.K_ESCAPE:
@@ -129,3 +141,31 @@ class MenuManager:
     def is_music_enabled(self) -> bool:
         """Get music setting"""
         return self.settings_menu.music_enabled
+    
+    def get_settings(self):
+        """Get current settings as object"""
+        class Settings:
+            def __init__(self, ai_difficulty, sound_enabled, music_enabled):
+                self.ai_difficulty = ai_difficulty
+                self.sound_enabled = sound_enabled
+                self.music_enabled = music_enabled
+        
+        return Settings(
+            ai_difficulty=self.get_ai_difficulty(),
+            sound_enabled=self.is_sound_enabled(),
+            music_enabled=self.is_music_enabled()
+        )
+    
+    def reset_to_main(self):
+        """Reset về main menu"""
+        self.current_state = MenuState.MAIN
+        self._update_visibility()
+    
+    def update(self, dt: float):
+        """Update menu animations (if any)"""
+        # Could be used for menu animations in the future
+        pass
+    
+    def render(self, screen: pygame.Surface):
+        """Render current menu (alias for draw)"""
+        self.draw(screen)
