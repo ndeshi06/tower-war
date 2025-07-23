@@ -45,8 +45,6 @@
 - Cây thừa kế rõ ràng (Tower → PlayerTower/EnemyTower)
 - Đa hình trong chiến lược AI và hành vi Tower
 - Quản lý hình ảnh với name mapping và fallback rendering
-- Phím ESC để tạm dừng thay vì thoát
-- Hộp thoại tạm dừng với nút tiếng Việt
 - Kiểm tra số quân để tránh giá trị âm
 - Hệ thống giải thích AI cho 3 chiến lược
 
