@@ -358,12 +358,11 @@ class TowerWarGame(Observer):
                     self._render_debug_info()
                     
         elif self.app_state == "result":
-            # Render game result
-            if self.view:
-                # Draw game background
-                self.view.draw(dt)
+            # Render game result - don't draw game view to prevent flickering
+            # Clear screen with black background
+            self.screen.fill((0, 0, 0))
             
-            # Draw result overlay
+            # Draw result overlay only
             if self.winner == OwnerType.PLAYER:
                 all_complete = self.current_level >= 3 and not self.has_next_level
                 self.game_result_view.draw_win_screen(

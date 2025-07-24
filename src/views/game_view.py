@@ -72,11 +72,11 @@ class GameView(Observer):
         
         elif event_type == "level_complete":
             self.game_state = GameState.LEVEL_COMPLETE
-            self.show_level_complete_dialog = True
-            self.level_complete_data = data
-            self._level_complete_surface = None  # Reset cached surface
-            # Don't show game over screen for level complete
-            print(f"GameView: Level complete! Next: {data.get('next_level_info')}")
+            # Don't show our own dialog - let main.py handle it
+            self.show_level_complete_dialog = False
+            self.level_complete_data = None
+            self._level_complete_surface = None
+            print(f"GameView: Level complete! Letting main.py handle dialog")
         
         elif event_type == "all_levels_complete":
             self.game_state = GameState.GAME_OVER
@@ -364,16 +364,14 @@ class GameView(Observer):
         # Draw HUD
         self.hud.draw(self.screen)
         
-        # Priority order: Pause menu > Level complete > Game over
+        # Priority order: Pause menu > Game over (no level complete dialog here)
         if self.game_state == GameState.PAUSED:
             # Draw pause menu if paused (highest priority)
             self.pause_menu.draw(self.screen)
-        elif self.show_level_complete_dialog and self.level_complete_data and self.game_state == GameState.LEVEL_COMPLETE:
-            # Draw level complete dialog only if in level complete state
-            self._draw_level_complete_dialog()
         elif self.game_state == GameState.GAME_OVER:
-            # Draw game over screen only if game ended and no level complete dialog
+            # Draw game over screen only for actual game over (not level complete)
             self.game_over_screen.draw(self.screen)
+        # Note: Level complete dialog is handled by main.py's result state
     
     def _draw_level_complete_dialog(self):
         """Vẽ dialog khi hoàn thành level"""
