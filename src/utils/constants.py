@@ -4,8 +4,11 @@ Constants module chứa tất cả các hằng số được sử dụng trong g
 import pygame
 
 # Kích thước màn hình
-SCREEN_WIDTH = 1000
-SCREEN_HEIGHT = 700
+SCREEN_WIDTH = 1024
+SCREEN_HEIGHT = 576
+
+# Kích thước vật thể
+TOWER_SIZE = (64, 64)
 
 # Màu sắc
 class Colors:

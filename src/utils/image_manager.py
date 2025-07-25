@@ -5,7 +5,7 @@ Thể hiện Singleton Pattern để cache images
 import pygame
 import os
 from typing import Dict, Optional
-from ..utils.constants import SCREEN_WIDTH, SCREEN_HEIGHT
+from ..utils.constants import SCREEN_WIDTH, SCREEN_HEIGHT, TOWER_SIZE
 
 class ImageManager:
     """
@@ -47,7 +47,7 @@ class ImageManager:
             
             # Resize nếu cần
             if size:
-                image = pygame.transform.scale(image, size)
+                image = pygame.transform.smoothscale(image, size)
             
             # Cache image
             self.images[filename] = image
@@ -76,7 +76,7 @@ class ImageManager:
         
         filename = filename_map.get(tower_type)
         if filename:
-            return self.load_image(filename, (60, 60))  # Tower size 60x60
+            return self.load_image(filename, TOWER_SIZE)  # Tower size 64x64
         return None
     
     def create_placeholder_image(self, size: tuple, color: tuple) -> pygame.Surface:
@@ -108,7 +108,7 @@ class ImageManager:
                 if 'background' in image_name:
                     size = (SCREEN_WIDTH, SCREEN_HEIGHT)
                 elif 'tower' in image_name:
-                    size = (60, 60)
+                    size = TOWER_SIZE
             
             return self.load_image(filename, size)
         
@@ -126,7 +126,7 @@ class ImageManager:
         }
         
         color = color_map.get(tower_type, Colors.GRAY)
-        return self.create_placeholder_image((60, 60), color)
+        return self.create_placeholder_image(TOWER_SIZE, color)
     
     def clear_cache(self):
         """Clear image cache"""

@@ -21,6 +21,18 @@ class Tower(GameObject, Clickable, Subject):
         # Load image manager
         from ..utils.image_manager import ImageManager
         self.image_manager = ImageManager()
+
+        #Load sound manager
+        from ..utils.sound_manager import SoundManager
+        self.sound_manager = SoundManager()
+        self.sound_manager.preload()
+
+        self._scale = 1.0  # scale mặc định
+        self._scale_velocity = 0.0  # tốc độ scale để giật
+
+        self._rotation = 0.0           # Góc xoay hiện tại
+        self._rotation_velocity = 0.0  # Tốc độ xoay để rung    
+
         
         # Encapsulation - private và protected attributes
         self.__owner = owner
@@ -35,6 +47,8 @@ class Tower(GameObject, Clickable, Subject):
         self.__validate_owner(owner)
         self.__validate_troops(troops)
     
+    # Images manager
+
     def __validate_owner(self, owner: str):
         """Private method để validate owner - Encapsulation"""
         valid_owners = [OwnerType.PLAYER, OwnerType.ENEMY, OwnerType.NEUTRAL]
@@ -48,6 +62,29 @@ class Tower(GameObject, Clickable, Subject):
         if troops > self.__max_troops:
             # Allow temporary exceeding during processing, but cap it
             pass
+    
+    def set_troop_count(self, new_count):
+        if new_count > self.troop_count:
+            self.bump_animation()
+        self._prev_troop_count = self.troop_count
+        self.troops = new_count
+
+    def trigger_bump(self):
+        """Gây hiệu ứng giật - dùng khi tăng quân"""
+        self._scale = 1.2
+        self._scale_velocity = -0.02
+        self._rotation = 5
+        self._rotation_velocity = -0.5
+
+    # Sound manager
+
+    def on_troop_gain(self, amount=1, from_team=None, auto=False):
+        self.troop_count += amount
+        now = pygame.time.get_ticks()
+        if auto:
+            if now - self.last_self_gain_sound > 500:  # 500ms cooldown
+                self.SoundManager().play("self_gain", volume=0.3)
+                self.last_self_gain_sound = now
     
     # Properties cho Encapsulation
     @property
@@ -79,6 +116,10 @@ class Tower(GameObject, Clickable, Subject):
         self.__validate_troops(value)
         old_troops = self.__troops
         self.__troops = min(value, self.__max_troops)
+
+        # Hiệu ứng giật
+        if value != old_troops:
+            self.trigger_bump()
         
         # Notify observers về sự thay đổi troops
         self.notify("troops_changed", {
@@ -136,7 +177,27 @@ class Tower(GameObject, Clickable, Subject):
         if current_time - self.__last_growth_time >= 1000:  # 1 giây
             if self.can_grow():
                 self.troops = self.__troops + self.__growth_rate
+                self.sound_manager.play("self_gain", volume=0.5)
             self.__last_growth_time = current_time
+        
+        # Scale hiệu ứng mượt
+        if self._scale_velocity != 0:
+            self._scale += self._scale_velocity
+            if self._scale > 1.2:
+                self._scale = 1.2
+                self._scale_velocity *= -1
+            elif self._scale < 1.0:
+                self._scale = 1.0
+                self._scale_velocity = 0
+
+        # Xoay hiệu ứng mượt
+        if self._rotation_velocity != 0:
+            self._rotation += self._rotation_velocity
+            if abs(self._rotation) > 5:  # Giật tối đa 5 độ
+                self._rotation_velocity *= -1
+            elif abs(self._rotation) < 0.5:
+                self._rotation = 0
+                self._rotation_velocity = 0
     
     def draw(self, screen: pygame.Surface):
         """
@@ -151,9 +212,23 @@ class Tower(GameObject, Clickable, Subject):
         tower_image = self.image_manager.get_image(image_name)
         
         if tower_image:
-            # Vẽ bằng image
-            image_rect = tower_image.get_rect(center=(int(self.x), int(self.y)))
-            screen.blit(tower_image, image_rect)
+            scaled_size = (
+                int(tower_image.get_width() * self._scale),
+                int(tower_image.get_height() * self._scale)
+            )
+
+            # Chỉ gọi scale một lần
+            scaled_image = pygame.transform.smoothscale(tower_image, scaled_size)
+
+            # Xoay
+            rotated_image = pygame.transform.rotate(scaled_image, self._rotation)
+
+            # Căn giữa lại đúng tọa độ gốc
+            image_rect = rotated_image.get_rect(center=(int(self.x), int(self.y)))
+
+            # Vẽ lên màn hình
+            screen.blit(rotated_image, image_rect)
+
         else:
             # Fallback: vẽ bằng circle như cũ
             color = self.get_color()
@@ -183,11 +258,12 @@ class Tower(GameObject, Clickable, Subject):
             font = pygame.font.Font(None, GameSettings.FONT_MEDIUM)
         
         text = font.render(str(self.__troops), True, Colors.WHITE)
-        text_rect = text.get_rect(center=(self.x, self.y))
+        text_rect = text.get_rect(midbottom=(self.x, self.y - self.radius - 4))
         
         # Vẽ shadow cho text để dễ đọc hơn
         shadow = font.render(str(self.__troops), True, Colors.BLACK)
-        shadow_rect = shadow.get_rect(center=(self.x + 1, self.y + 1))
+        shadow_rect = shadow.get_rect(midbottom=(self.x + 1, self.y - self.radius - 3))
+
         screen.blit(shadow, shadow_rect)
         screen.blit(text, text_rect)
     
@@ -241,22 +317,28 @@ class Tower(GameObject, Clickable, Subject):
         """
         if self.__owner == attacker_owner:
             # Cùng phe, tăng quân
+            self.sound_manager.play("troop_add")
             self.troops = self.__troops + attacking_troops
             return False
         else:
             # Khác phe, giảm quân
+            self.sound_manager.play("troop_remove")
             if attacking_troops >= self.__troops:
                 # Tower bị chiếm
                 remaining_troops = attacking_troops - self.__troops
                 old_owner = self.__owner
                 self.owner = attacker_owner  # Sử dụng setter để trigger notification
                 self.troops = remaining_troops
+                if remaining_troops > 0: # hiệu ứng giật
+                    self.trigger_bump()
                 print(f"Tower captured! {old_owner} -> {attacker_owner} với {remaining_troops} quân")
                 return True
             else:
                 # Tower không bị chiếm, chỉ giảm quân
                 self.troops = self.__troops - attacking_troops
                 return False
+
+        
     
     def distance_to(self, other: 'Tower') -> float:
         """Tính khoảng cách đến tower khác"""

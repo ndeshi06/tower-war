@@ -49,7 +49,14 @@ class TowerWarGame(Observer):
         
         # Input handling
         self.keys_pressed = set()
-    
+
+        # Music
+        from src.utils.sound_manager import SoundManager
+        sound_manager = SoundManager()
+        sound_manager.preload()
+        print(">>> Playing background music")
+        sound_manager.play_background_music()
+
     def start_game(self, level=1):
         """Khởi tạo game components với level cụ thể"""
         if not self.controller:
