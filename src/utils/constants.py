@@ -20,6 +20,7 @@ class Colors:
     BLACK = (0, 0, 0)
     GREEN = (0, 200, 0)       # Màu xanh lá đậm
     LIGHT_GREEN = (144, 238, 144)  # Màu xanh lá nhạt
+    LIGHT_RED = (255, 182, 193)    # Màu đỏ nhạt
     LIGHT_BLUE = (173, 216, 230)
     DARK_BLUE = (0, 0, 139)
     LIGHT_GRAY = (192, 192, 192)   # Màu xám nhạt
@@ -33,7 +34,7 @@ class GameSettings:
     TOWER_GROWTH_RATE = 1
     TROOP_SPEED = 100
     TROOP_RADIUS = 5
-    AI_ACTION_INTERVAL = 3000  # milliseconds
+    AI_ACTION_INTERVAL = 4000  # milliseconds - tăng lên để AI không quá thường xuyên
     
     # Font sizes
     FONT_LARGE = 36

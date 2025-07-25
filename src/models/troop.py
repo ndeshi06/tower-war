@@ -25,6 +25,12 @@ class Troop(GameObject, Movable):
         self.__speed = GameSettings.TROOP_SPEED
         self.__radius = GameSettings.TROOP_RADIUS
         
+        # Formation and spawning attributes
+        self._final_target = None
+        self._in_formation_phase = False
+        self._is_first_in_formation = False
+        self._formation_id = None
+        
         # Tính toán vector di chuyển
         self.__dx, self.__dy = self.__calculate_movement_vector()
         
@@ -107,19 +113,57 @@ class Troop(GameObject, Movable):
     def move(self, dt: float):
         """
         Implementation của Movable interface
-        Di chuyển troop theo hướng đã tính toán
+        Di chuyển troop theo hướng đã tính toán với ultra-stable movement để tránh xuyên qua tower
         """
-        self.x += self.__dx * dt
-        self.y += self.__dy * dt
+        # Kiểm tra khoảng cách đến target trước
+        current_distance = math.sqrt((self.__target_x - self.x)**2 + (self.__target_y - self.y)**2)
+        
+        # Nếu đã rất gần target, snap to target ngay lập tức
+        if current_distance <= 2.0:  # Increased threshold để catch sớm hơn
+            self.x = self.__target_x
+            self.y = self.__target_y
+            return
+        
+        # Tính toán movement với speed được điều chỉnh
+        base_movement_step = self.__speed * dt
+        
+        # Adaptive movement: chậm lại khi gần target để tránh overshoot
+        if current_distance < 20.0:  # Slow down zone
+            # Giảm speed khi gần target
+            speed_multiplier = max(0.3, current_distance / 20.0)  # Minimum 30% speed
+            movement_step = base_movement_step * speed_multiplier
+        else:
+            movement_step = base_movement_step
+        
+        # Nếu movement step sẽ vượt quá target, chỉ di chuyển đúng đến target
+        if movement_step >= current_distance:
+            self.x = self.__target_x
+            self.y = self.__target_y
+            return
+        
+        # Di chuyển bình thường với direction chuẩn
+        direction_x = (self.__target_x - self.x) / current_distance
+        direction_y = (self.__target_y - self.y) / current_distance
+        
+        # Apply movement với safety check
+        new_x = self.x + direction_x * movement_step
+        new_y = self.y + direction_y * movement_step
+        
+        # Double-check: không được vượt quá target
+        new_distance = math.sqrt((self.__target_x - new_x)**2 + (self.__target_y - new_y)**2)
+        if new_distance <= current_distance:  # Chỉ move nếu tiến gần hơn
+            self.x = new_x
+            self.y = new_y
     
     def has_reached_target(self) -> bool:
         """
-        Kiểm tra xem troop đã đến đích chưa
+        Kiểm tra xem troop đã đến đích chưa với improved threshold để catch sớm hơn
         """
         distance_to_target = math.sqrt(
             (self.__target_x - self.x)**2 + (self.__target_y - self.y)**2
         )
-        return distance_to_target <= self.__radius
+        # Tăng threshold để catch troops sớm hơn, tránh troops xuyên qua
+        return distance_to_target <= 5.0  # Increased from 2.0 to 5.0
     
     def draw(self, screen: pygame.Surface):
         """
@@ -156,6 +200,15 @@ class Troop(GameObject, Movable):
         pygame.draw.rect(screen, Colors.WHITE, background_rect, 1)
         
         screen.blit(text, text_rect)
+    
+    def update_target(self, new_target_x: float, new_target_y: float):
+        """Update target position và đảm bảo không gây oscillation"""
+        # Chỉ update nếu target thực sự khác
+        distance_to_new_target = math.sqrt((new_target_x - self.__target_x)**2 + (new_target_y - self.__target_y)**2)
+        if distance_to_new_target > 5.0:  # Threshold để tránh update liên tục
+            self.__target_x = new_target_x
+            self.__target_y = new_target_y
+            print(f"Updated target for troop at ({self.x:.1f}, {self.y:.1f}) to ({new_target_x:.1f}, {new_target_y:.1f})")
     
     def distance_to_target(self) -> float:
         """Tính khoảng cách đến target"""

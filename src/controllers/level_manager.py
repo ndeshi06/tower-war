@@ -75,3 +75,17 @@ class LevelManager:
     def get_progress(self) -> str:
         """Lấy tiến độ hoàn thành"""
         return f"Level {self.current_level}/{self.max_level}"
+    
+    def is_level_unlocked(self, level: int) -> bool:
+        """Kiểm tra level có bị khoá không"""
+        if level == 1:
+            return True  # Level 1 luôn mở
+        return (level - 1) in self.levels_completed  # Level N mở khi hoàn thành level N-1
+    
+    def get_unlocked_levels(self) -> list:
+        """Lấy danh sách các level đã mở khóa"""
+        unlocked = []
+        for level in range(1, self.max_level + 1):
+            if self.is_level_unlocked(level):
+                unlocked.append(level)
+        return unlocked

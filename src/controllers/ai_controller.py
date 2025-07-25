@@ -240,10 +240,10 @@ class AIController(Observer, Subject):
         current_time = pygame.time.get_ticks()
         return current_time - self.last_action_time >= self.action_interval
     
-    def execute_action(self, towers: List[Tower]) -> Optional['EnemyTroop']:
+    def execute_action(self, towers: List[Tower]) -> Optional[dict]:
         """
-        Thực hiện hành động AI
-        Returns: EnemyTroop nếu có action được thực hiện
+        Thực hiện hành động AI với improved timing control
+        Returns: dict với action info nếu có action được thực hiện
         """
         if not self.should_take_action():
             return None
@@ -259,31 +259,28 @@ class AIController(Observer, Subject):
             source_tower = action['source']
             target_tower = action['target']
             
+            # Kiểm tra xem tower có thể gửi quân không (tránh duplicate actions)
+            if not source_tower.can_send_troops():
+                return None
+            
             # Thực hiện gửi quân
             troops_count = source_tower.send_troops(target_tower)
             
             if troops_count > 0:
-                # Tạo enemy troop
-                troop = EnemyTroop(
-                    source_tower.x, source_tower.y,
-                    target_tower.x, target_tower.y,
-                    troops_count
-                )
-                
                 self.actions_taken += 1
                 self.last_action_time = pygame.time.get_ticks()
                 
-                # Notify observers về AI action
-                self.notify("ai_action_taken", {
-                    "source": source_tower,
-                    "target": target_tower,
-                    "troops_count": troops_count,
-                    "strategy": self.strategy.__class__.__name__
-                })
+                # Thêm random delay để AI không quá predictable và tránh cluster spawning
+                additional_delay = random.randint(200, 800)  # 0.2-0.8 giây
+                self.last_action_time += additional_delay
                 
-                return troop
+                # Return action data thay vì tạo troop
+                return {
+                    'source': source_tower,
+                    'target': target_tower,
+                    'troops_count': troops_count
+                }
         
-        self.last_action_time = pygame.time.get_ticks()
         return None
     
     def reset_stats(self):

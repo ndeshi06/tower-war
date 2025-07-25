@@ -9,6 +9,7 @@ from ..views.main_menu import MainMenu
 from ..views.settings_menu import SettingsMenu
 from ..views.help_menu import HelpMenu
 from ..utils.constants import SCREEN_WIDTH, SCREEN_HEIGHT
+from ..utils.sound_manager import SoundManager
 
 class MenuState(Enum):
     """Enum cho các trạng thái menu"""
@@ -23,7 +24,10 @@ class MenuManager:
     Thể hiện State Pattern cho menu navigation
     """
     
-    def __init__(self):
+    def __init__(self, screen=None):
+        # Screen reference for scaling
+        self.screen = screen
+        
         # Current state
         self.current_state = MenuState.MAIN
         
@@ -31,6 +35,9 @@ class MenuManager:
         self.main_menu = MainMenu()
         self.settings_menu = SettingsMenu()
         self.help_menu = HelpMenu()
+        
+        # Sound manager reference
+        self.sound_manager = SoundManager()
         
         # Initially only main menu is visible
         self._update_visibility()
@@ -46,8 +53,11 @@ class MenuManager:
         Handle click events và state transitions
         Returns: action string hoặc None
         """
+        print(f"MenuManager click at: {pos}, current state: {self.current_state}")
+        
         if self.current_state == MenuState.MAIN:
             action = self.main_menu.handle_click(pos)
+            print(f"Main menu action: {action}")
             
             if action == "start_game":
                 self.current_state = MenuState.GAME
@@ -55,6 +65,7 @@ class MenuManager:
             elif action == "settings":
                 self.current_state = MenuState.SETTINGS
                 self._update_visibility()
+                print("Switched to settings menu")
             elif action == "help":
                 self.current_state = MenuState.HELP
                 self._update_visibility()
@@ -62,15 +73,32 @@ class MenuManager:
                 return "quit"
         
         elif self.current_state == MenuState.SETTINGS:
+            print("Handling settings menu click")
             action = self.settings_menu.handle_click(pos)
+            print(f"Settings menu action: {action}")
             
             if action == "back":
                 self.current_state = MenuState.MAIN
                 self._update_visibility()
-            elif action in ["ai_easy", "ai_medium", "ai_hard"]:
-                return action  # Pass to game controller
-            elif action in ["toggle_sound", "toggle_music"]:
-                return action  # Pass to audio manager (if implemented)
+                print("Back to main menu")
+            elif action == "toggle_sound":
+                # Don't toggle again! Settings menu already toggled it
+                print(f"MenuManager received toggle_sound, current state: {self.settings_menu.sound_enabled}")
+                # Update SoundManager's SFX volume based on current state
+                if self.settings_menu.sound_enabled:
+                    self.sound_manager.set_sfx_volume(0.7)  # Restore SFX volume
+                else:
+                    self.sound_manager.set_sfx_volume(0.0)  # Mute SFX only
+                print(f"Sound effects {'enabled' if self.settings_menu.sound_enabled else 'disabled'}")
+            elif action == "toggle_music":
+                # Don't toggle again! Settings menu already toggled it
+                print(f"MenuManager received toggle_music, current state: {self.settings_menu.music_enabled}")
+                # Update background music volume based on current state
+                if self.settings_menu.music_enabled:
+                    self.sound_manager.set_music_volume(0.5)  # Restore music volume
+                else:
+                    self.sound_manager.set_music_volume(0.0)  # Mute music only
+                print(f"Background music {'enabled' if self.settings_menu.music_enabled else 'disabled'}")
         
         elif self.current_state == MenuState.HELP:
             action = self.help_menu.handle_click(pos)
@@ -130,10 +158,6 @@ class MenuManager:
         self.current_state = MenuState.MAIN
         self._update_visibility()
     
-    def get_ai_difficulty(self) -> str:
-        """Get current AI difficulty setting"""
-        return self.settings_menu.ai_difficulty
-    
     def is_sound_enabled(self) -> bool:
         """Get sound setting"""
         return self.settings_menu.sound_enabled
@@ -145,13 +169,11 @@ class MenuManager:
     def get_settings(self):
         """Get current settings as object"""
         class Settings:
-            def __init__(self, ai_difficulty, sound_enabled, music_enabled):
-                self.ai_difficulty = ai_difficulty
+            def __init__(self, sound_enabled, music_enabled):
                 self.sound_enabled = sound_enabled
                 self.music_enabled = music_enabled
         
         return Settings(
-            ai_difficulty=self.get_ai_difficulty(),
             sound_enabled=self.is_sound_enabled(),
             music_enabled=self.is_music_enabled()
         )
@@ -168,4 +190,9 @@ class MenuManager:
     
     def render(self, screen: pygame.Surface):
         """Render current menu (alias for draw)"""
+        # Update screen reference for all menus
+        self.main_menu.screen = screen
+        self.settings_menu.screen = screen
+        self.help_menu.screen = screen
+        
         self.draw(screen)

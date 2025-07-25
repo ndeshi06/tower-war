@@ -3,7 +3,7 @@
 ## Tổng quan dự án
 - **Tên game**: Tower War
 - **Ngôn ngữ**: Python với pygame
-- **Kiến trúc**: MVC (Model-View-Controller) với 15+ Design Patterns
+- **Kiến trúc**: MVC (Model-View-Controller) với Design Patterns
 - **Mục tiêu**: Game chiến thuật thời gian thực với AI thông minh
 
 ## Các vấn đề đã khắc phục

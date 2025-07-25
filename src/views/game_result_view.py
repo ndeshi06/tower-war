@@ -7,7 +7,10 @@ from ..utils.constants import Colors, SCREEN_WIDTH, SCREEN_HEIGHT, OwnerType
 class GameResultView:
     """UI hiển thị kết quả game"""
     
-    def __init__(self):
+    def __init__(self, screen=None):
+        # Screen reference for scaling
+        self.screen = screen
+        
         # Initialize fonts với Unicode support
         pygame.font.init()
         try:
@@ -29,7 +32,7 @@ class GameResultView:
         self.animation_time = 0
         self.show_animation = True
         
-    def setup_win_buttons(self, current_level, has_next_level):
+    def setup_win_buttons(self, current_level, has_next_level, screen_width, screen_height):
         """Setup buttons cho trường hợp thắng"""
         self.buttons.clear()
         button_width = 200
@@ -38,8 +41,8 @@ class GameResultView:
         
         if has_next_level:
             # Next Level button
-            x = SCREEN_WIDTH // 2 - button_width // 2
-            y = SCREEN_HEIGHT // 2 + 50
+            x = screen_width // 2 - button_width // 2
+            y = screen_height // 2 + 50
             next_level_text = f"Level {current_level + 1}"
             try:
                 next_level_text = f"Level {current_level + 1}"
@@ -61,15 +64,15 @@ class GameResultView:
             }
         else:
             # All levels complete - only main menu
-            x = SCREEN_WIDTH // 2 - button_width // 2
-            y = SCREEN_HEIGHT // 2 + 50
+            x = screen_width // 2 - button_width // 2
+            y = screen_height // 2 + 50
             self.buttons["main_menu"] = {
                 "rect": pygame.Rect(x, y, button_width, button_height),
                 "text": "Main Menu",
                 "color": Colors.BLUE
             }
     
-    def setup_lose_buttons(self):
+    def setup_lose_buttons(self, screen_width, screen_height):
         """Setup buttons cho trường hợp thua"""
         self.buttons.clear()
         button_width = 200
@@ -77,8 +80,8 @@ class GameResultView:
         spacing = 30
         
         # Play Again button
-        x = SCREEN_WIDTH // 2 - button_width // 2
-        y = SCREEN_HEIGHT // 2 + 50
+        x = screen_width // 2 - button_width // 2
+        y = screen_height // 2 + 50
         self.buttons["play_again"] = {
             "rect": pygame.Rect(x, y, button_width, button_height),
             "text": "Play Again",
@@ -117,16 +120,20 @@ class GameResultView:
     
     def draw_win_screen(self, screen, current_level, has_next_level, all_complete=False):
         """Vẽ win screen"""
+        # Get current screen dimensions
+        screen_width = screen.get_width()
+        screen_height = screen.get_height()
+        
         # Semi-transparent background
-        overlay = pygame.Surface((SCREEN_WIDTH, SCREEN_HEIGHT), pygame.SRCALPHA)
+        overlay = pygame.Surface((screen_width, screen_height), pygame.SRCALPHA)
         overlay.fill((0, 100, 0, 180))  # Green tint
         screen.blit(overlay, (0, 0))
         
         # Main container
         container_width = 400
         container_height = 300
-        container_x = (SCREEN_WIDTH - container_width) // 2
-        container_y = (SCREEN_HEIGHT - container_height) // 2
+        container_x = (screen_width - container_width) // 2
+        container_y = (screen_height - container_height) // 2
         
         container_rect = pygame.Rect(container_x, container_y, container_width, container_height)
         pygame.draw.rect(screen, Colors.WHITE, container_rect)
@@ -156,25 +163,29 @@ class GameResultView:
         
         # Setup buttons
         if all_complete:
-            self.setup_win_buttons(current_level, False)
+            self.setup_win_buttons(current_level, False, screen_width, screen_height)
         else:
-            self.setup_win_buttons(current_level, has_next_level)
+            self.setup_win_buttons(current_level, has_next_level, screen_width, screen_height)
         
         # Draw buttons
         self._draw_buttons(screen)
     
     def draw_lose_screen(self, screen, current_level):
         """Vẽ lose screen"""
+        # Get current screen dimensions
+        screen_width = screen.get_width()
+        screen_height = screen.get_height()
+        
         # Semi-transparent background
-        overlay = pygame.Surface((SCREEN_WIDTH, SCREEN_HEIGHT), pygame.SRCALPHA)
+        overlay = pygame.Surface((screen_width, screen_height), pygame.SRCALPHA)
         overlay.fill((100, 0, 0, 180))  # Red tint
         screen.blit(overlay, (0, 0))
         
         # Main container
         container_width = 400
         container_height = 300
-        container_x = (SCREEN_WIDTH - container_width) // 2
-        container_y = (SCREEN_HEIGHT - container_height) // 2
+        container_x = (screen_width - container_width) // 2
+        container_y = (screen_height - container_height) // 2
         
         container_rect = pygame.Rect(container_x, container_y, container_width, container_height)
         pygame.draw.rect(screen, Colors.WHITE, container_rect)
@@ -193,7 +204,7 @@ class GameResultView:
         screen.blit(subtitle_surface, subtitle_rect)
         
         # Setup and draw buttons
-        self.setup_lose_buttons()
+        self.setup_lose_buttons(screen_width, screen_height)
         self._draw_buttons(screen)
     
     def _draw_buttons(self, screen):

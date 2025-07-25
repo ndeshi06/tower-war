@@ -12,72 +12,87 @@ class SettingsMenu(UIView):
     """
     
     def __init__(self):
-        super().__init__(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT)
+        super().__init__(0, 0, 1024, 576)  # Use default size, will be scaled dynamically
         
         # Settings values
-        self.ai_difficulty = "medium"
         self.sound_enabled = True
         self.music_enabled = True
         
-        # Buttons - căn giữa chính xác
-        button_width, button_height = 250, 50
-        center_x = SCREEN_WIDTH // 2
-        start_y = SCREEN_HEIGHT // 2 - 100
-        
-        # AI difficulty buttons - căn giữa theo hàng ngang
-        ai_button_width = 100
-        total_ai_width = 3 * ai_button_width + 2 * 20  # 3 buttons + 2 spaces
-        ai_start_x = center_x - total_ai_width // 2
-        
-        self.ai_easy_button = pygame.Rect(ai_start_x, start_y, ai_button_width, button_height)
-        self.ai_medium_button = pygame.Rect(ai_start_x + ai_button_width + 20, start_y, ai_button_width, button_height)
-        self.ai_hard_button = pygame.Rect(ai_start_x + 2 * (ai_button_width + 20), start_y, ai_button_width, button_height)
-        
-        # Other buttons - căn giữa
-        self.sound_button = pygame.Rect(center_x - button_width // 2, start_y + 80, button_width, button_height)
-        self.music_button = pygame.Rect(center_x - button_width // 2, start_y + 140, button_width, button_height)
-        self.back_button = pygame.Rect(center_x - button_width // 2, start_y + 220, button_width, button_height)
+        # Buttons - will be recalculated dynamically
+        self.sound_button = None
+        self.music_button = None
+        self.back_button = None
         
         self.mouse_pos = (0, 0)
     
     def handle_click(self, pos: tuple) -> Optional[str]:
         """Handle settings button clicks"""
-        if self.ai_easy_button.collidepoint(pos):
-            self.ai_difficulty = "easy"
-            return "ai_easy"
-        elif self.ai_medium_button.collidepoint(pos):
-            self.ai_difficulty = "medium"
-            return "ai_medium"
-        elif self.ai_hard_button.collidepoint(pos):
-            self.ai_difficulty = "hard"
-            return "ai_hard"
-        elif self.sound_button.collidepoint(pos):
+        print(f"Settings click at: {pos}")
+        
+        # Make sure buttons are calculated
+        if not self.sound_button:
+            screen_width, screen_height = 1024, 576  # Default size
+            self._recalculate_buttons(screen_width, screen_height)
+        
+        print(f"Sound button: {self.sound_button}")
+        print(f"Music button: {self.music_button}")
+        print(f"Back button: {self.back_button}")
+        print(f"Current sound_enabled: {self.sound_enabled}")
+        print(f"Current music_enabled: {self.music_enabled}")
+        
+        if self.sound_button and self.sound_button.collidepoint(pos):
+            old_state = self.sound_enabled
             self.sound_enabled = not self.sound_enabled
+            print(f"Sound toggled from {old_state} to: {self.sound_enabled}")
             return "toggle_sound"
-        elif self.music_button.collidepoint(pos):
+        elif self.music_button and self.music_button.collidepoint(pos):
+            old_state = self.music_enabled
             self.music_enabled = not self.music_enabled
+            print(f"Music toggled from {old_state} to: {self.music_enabled}")
             return "toggle_music"
-        elif self.back_button.collidepoint(pos):
+        elif self.back_button and self.back_button.collidepoint(pos):
+            print("Back button clicked")
             return "back"
+        
+        print("No button clicked")
         return None
     
     def update_mouse_pos(self, pos: tuple):
         """Update mouse position"""
         self.mouse_pos = pos
     
+    def _recalculate_buttons(self, screen_width, screen_height):
+        """Recalculate button positions for current screen size"""
+        # Buttons - căn giữa chính xác
+        button_width, button_height = 250, 50
+        center_x = screen_width // 2
+        start_y = screen_height // 2 - 30  # Căn giữa thật sự
+        
+        # Other buttons - căn giữa
+        self.sound_button = pygame.Rect(center_x - button_width // 2, start_y, button_width, button_height)
+        self.music_button = pygame.Rect(center_x - button_width // 2, start_y + 70, button_width, button_height)
+        self.back_button = pygame.Rect(center_x - button_width // 2, start_y + 140, button_width, button_height)
+    
     def draw(self, screen: pygame.Surface):
         """Vẽ settings menu"""
         if not self.visible:
             return
         
+        # Get current screen dimensions
+        screen_width = screen.get_width()
+        screen_height = screen.get_height()
+        
+        # Recalculate button positions
+        self._recalculate_buttons(screen_width, screen_height)
+        
         # Background overlay
-        overlay = pygame.Surface((SCREEN_WIDTH, SCREEN_HEIGHT))
+        overlay = pygame.Surface((screen_width, screen_height))
         overlay.set_alpha(200)
         overlay.fill(Colors.BLACK)
         screen.blit(overlay, (0, 0))
         
-        # Main panel
-        panel_rect = pygame.Rect(SCREEN_WIDTH//2 - 300, SCREEN_HEIGHT//2 - 200, 600, 400)
+        # Main panel - căn giữa đúng cách
+        panel_rect = pygame.Rect(screen_width//2 - 200, screen_height//2 - 120, 400, 240)
         pygame.draw.rect(screen, Colors.WHITE, panel_rect)
         pygame.draw.rect(screen, Colors.BLACK, panel_rect, 3)
         
@@ -86,11 +101,8 @@ class SettingsMenu(UIView):
         title_text = "SETTINGS"
         title_surface = title_font.render(title_text, True, Colors.BLACK)
         title_rect = title_surface.get_rect()
-        title_pos = (SCREEN_WIDTH//2 - title_rect.width//2, SCREEN_HEIGHT//2 - 160)
+        title_pos = (screen_width//2 - title_rect.width//2, screen_height//2 - 90)
         screen.blit(title_surface, title_pos)
-        
-        # AI Difficulty section
-        self._draw_ai_difficulty(screen)
         
         # Audio settings
         self._draw_audio_settings(screen)
@@ -100,27 +112,6 @@ class SettingsMenu(UIView):
         back_hover = self.back_button.collidepoint(self.mouse_pos)
         self.draw_button(screen, self.back_button, "BACK", button_font,
                         Colors.GRAY, Colors.WHITE, Colors.BLACK, back_hover)
-    
-    def _draw_ai_difficulty(self, screen: pygame.Surface):
-        """Vẽ AI difficulty settings"""
-        label_font = self.get_font(GameSettings.FONT_MEDIUM)
-        button_font = self.get_font(GameSettings.FONT_SMALL, bold=True)
-        
-        # Buttons
-        difficulties = [
-            (self.ai_easy_button, "EASY", "easy"),
-            (self.ai_medium_button, "MEDIUM", "medium"),
-            (self.ai_hard_button, "HARD", "hard")
-        ]
-        
-        for button_rect, text, difficulty in difficulties:
-            is_selected = self.ai_difficulty == difficulty
-            is_hover = button_rect.collidepoint(self.mouse_pos)
-            
-            bg_color = Colors.GREEN if is_selected else Colors.GRAY
-            
-            self.draw_button(screen, button_rect, text, button_font,
-                           bg_color, Colors.WHITE, Colors.BLACK, is_hover)
     
     def _draw_audio_settings(self, screen: pygame.Surface):
         """Vẽ audio settings"""

@@ -115,10 +115,9 @@ Game có 3 level với độ khó tăng dần:
 ### Progression System
 - **Hoàn thành level**: Chiến thắng để mở khóa level tiếp theo
 - **Level complete dialog**: Hiển thị khi thắng, cho phép chuyển level
+- **Game result screen**: Thông tin chi tiết về kết quả
 - **Restart option**: Có thể chơi lại từ level 1 bất cứ lúc nào
-- **Điều khiển**: 
-  - `SPACE` - Chuyển sang level tiếp theo
-  - `R` - Restart từ level 1
+- **Duration tracking**: Hiển thị thời gian hoàn thành level
 
 ## Cài đặt và chạy
 
@@ -136,18 +135,30 @@ python main.py
 
 ### Game Controls
 - **Click chuột trái**: Chọn tower và gửi quân
-- **ESC**: Pause/Resume game
-- **SPACE**: Continue khi level complete hoặc resume khi pause
-- **R**: Restart game từ level 1
-- **Q**: Về main menu (khi pause)
+- **ESC/SPACE**: Pause/Resume game với pause menu
+- **F11**: Fullscreen mode với proper scaling
+
+### Pause Menu Features
+- **Resume**: Tiếp tục game
+- **Restart**: Restart level hiện tại
+- **Main Menu**: Quay về main menu
+- **Sound Controls**: 
+  - **SFX**: Tắt/bật sound effects
+  - **MUSIC**: Tắt/bật background music
+
+### Settings Menu
+- **Sound Settings**: Điều chỉnh âm thanh
+- **Music Settings**: Điều chỉnh nhạc nền
+- **Save Settings**: Tự động lưu preferences
 
 ### Level Navigation
 - **Level Select**: Chọn level từ main menu
+- **Progressive Unlock**: Mở khóa level theo tiến độ
 
-### AI Difficulty
-- **Easy mode**
-- **Medium mode**
-- **Hard mode**
+### Display Features
+- **Dynamic Scaling**: UI tự động scale theo screen size
+- **Fullscreen Support**: F11 toggle với aspect ratio preservation
+- **Responsive Design**: Hoạt động trên mọi resolution
 
 ## Chiến thuật
 

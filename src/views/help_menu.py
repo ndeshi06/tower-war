@@ -12,10 +12,10 @@ class HelpMenu(UIView):
     """
     
     def __init__(self):
-        super().__init__(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT)
+        super().__init__(0, 0, 1024, 576)  # Use default size, will be scaled dynamically
         
-        # Back button
-        self.back_button = pygame.Rect(SCREEN_WIDTH//2 - 100, SCREEN_HEIGHT - 80, 200, 50)
+        # Back button - will be recalculated dynamically
+        self.back_button = None
         self.mouse_pos = (0, 0)
     
     def handle_click(self, pos: tuple) -> Optional[str]:
@@ -28,19 +28,30 @@ class HelpMenu(UIView):
         """Update mouse position"""
         self.mouse_pos = pos
     
+    def _recalculate_buttons(self, screen_width, screen_height):
+        """Recalculate button positions for current screen size"""
+        self.back_button = pygame.Rect(screen_width//2 - 100, screen_height - 80, 200, 50)
+    
     def draw(self, screen: pygame.Surface):
         """Vẽ help menu"""
         if not self.visible:
             return
         
+        # Get current screen dimensions
+        screen_width = screen.get_width()
+        screen_height = screen.get_height()
+        
+        # Recalculate button positions
+        self._recalculate_buttons(screen_width, screen_height)
+        
         # Background overlay
-        overlay = pygame.Surface((SCREEN_WIDTH, SCREEN_HEIGHT))
+        overlay = pygame.Surface((screen_width, screen_height))
         overlay.set_alpha(200)
         overlay.fill(Colors.BLACK)
         screen.blit(overlay, (0, 0))
         
         # Main panel
-        panel_rect = pygame.Rect(50, 50, SCREEN_WIDTH - 100, SCREEN_HEIGHT - 100)
+        panel_rect = pygame.Rect(50, 50, screen_width - 100, screen_height - 100)
         pygame.draw.rect(screen, Colors.WHITE, panel_rect)
         pygame.draw.rect(screen, Colors.BLACK, panel_rect, 3)
         
@@ -49,7 +60,7 @@ class HelpMenu(UIView):
         title_text = "HOW TO PLAY"
         title_surface = title_font.render(title_text, True, Colors.BLACK)
         title_rect = title_surface.get_rect()
-        title_pos = (SCREEN_WIDTH//2 - title_rect.width//2, 80)
+        title_pos = (screen_width//2 - title_rect.width//2, 80)
         screen.blit(title_surface, title_pos)
         
         # Game rules

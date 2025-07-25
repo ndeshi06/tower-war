@@ -4,6 +4,7 @@ Thể hiện Singleton Pattern, Observer Pattern, và State Pattern
 """
 import pygame
 import random
+import math
 from typing import List, Optional, Tuple
 from ..models.base import Observer, Subject
 from ..models.tower import Tower, PlayerTower, EnemyTower
@@ -53,6 +54,9 @@ class GameController(Subject, Observer):
         self._player_actions = 0
         self._total_battles = 0
         
+        # Troop spawning system
+        self._spawn_queue = []  # Queue of troops waiting to spawn
+        
         # Initialize game
         self._create_initial_towers()
         self._setup_observers()
@@ -65,30 +69,79 @@ class GameController(Subject, Observer):
             tower.attach(self)  # Game controller observes all towers
     
     def _create_initial_towers(self):
-        """Tạo towers ban đầu theo design pattern"""
-        # Sử dụng Factory pattern concept
-        tower_factory = TowerFactory()
+        """Tạo towers ban đầu theo design pattern với vị trí động"""
+        # Calculate dynamic positions based on screen size
+        positions = self._calculate_tower_positions()
         
-        # Player towers (left side - farther from center)
-        player_positions = [(100, 200), (100, 600)]
-        for x, y in player_positions:
-            tower = tower_factory.create_player_tower(x, y)
+        # Player towers (left side)
+        for x, y in positions['player']:
+            tower = PlayerTower(x, y, troops=10)
             self._towers.append(tower)
         
-        # Enemy towers (right side - farther from center)
-        enemy_positions = [(900, 200), (900, 600)]
-        for x, y in enemy_positions:
-            tower = tower_factory.create_enemy_tower(x, y)
+        # Enemy towers (right side)
+        for x, y in positions['enemy']:
+            tower = EnemyTower(x, y, troops=1)
             self._towers.append(tower)
         
-        # Neutral towers (centered between players)
-        neutral_positions = [
-            (500, 150), (250, 400), (750, 400),
-            (500, 350), (350, 600), (650, 600)
+        # Neutral towers (scattered between)
+        import random
+        for x, y in positions['neutral']:
+            troops = random.randint(5, 15)
+            tower = Tower(x, y, OwnerType.NEUTRAL, troops)
+            self._towers.append(tower)
+    
+    def _calculate_tower_positions(self):
+        """Calculate tower positions based on current screen dimensions - truly responsive"""
+        # Use base game dimensions (1024x576) as reference but make it more responsive
+        base_width = 1024
+        base_height = 576
+        
+        # Calculate margins and safe zones as percentages for better scaling
+        margin_x_percent = 0.08  # 8% margin from edges
+        margin_y_percent = 0.2   # 20% margin from top (for HUD)
+        bottom_margin_percent = 0.08  # 8% margin from bottom
+        
+        # Calculate actual positions
+        margin_x = base_width * margin_x_percent
+        margin_y = base_height * margin_y_percent
+        safe_bottom = base_height * (1 - bottom_margin_percent)
+        available_height = safe_bottom - margin_y
+        
+        # Player side (far left)
+        player_x = margin_x
+        player_positions = [
+            (player_x, margin_y + available_height * 0.25),  # Upper player tower
+            (player_x, margin_y + available_height * 0.75)   # Lower player tower
         ]
-        for x, y in neutral_positions:
-            tower = tower_factory.create_neutral_tower(x, y)
-            self._towers.append(tower)
+        
+        # Enemy side (far right)
+        enemy_x = base_width - margin_x
+        enemy_positions = [
+            (enemy_x, margin_y + available_height * 0.25),   # Upper enemy tower
+            (enemy_x, margin_y + available_height * 0.75)    # Lower enemy tower
+        ]
+        
+        # Neutral towers (distributed in middle area for better gameplay)
+        center_x = base_width * 0.5
+        left_zone = base_width * 0.25
+        right_zone = base_width * 0.75
+        mid_left = base_width * 0.35
+        mid_right = base_width * 0.65
+        
+        neutral_positions = [
+            (center_x, margin_y + available_height * 0.1),     # Top center
+            (left_zone, margin_y + available_height * 0.4),    # Left middle
+            (right_zone, margin_y + available_height * 0.4),   # Right middle
+            (center_x, margin_y + available_height * 0.6),     # Center lower
+            (mid_left, margin_y + available_height * 0.85),    # Lower left
+            (mid_right, margin_y + available_height * 0.85)    # Lower right
+        ]
+        
+        return {
+            'player': player_positions,
+            'enemy': enemy_positions,
+            'neutral': neutral_positions
+        }
     
     @property
     def game_state(self) -> str:
@@ -168,6 +221,7 @@ class GameController(Subject, Observer):
         # Reset game objects
         self._towers.clear()
         self._troops.clear()
+        self._spawn_queue.clear()  # Clear spawn queue
         self._selected_tower = None
         self._winner = None
         
@@ -236,26 +290,130 @@ class GameController(Subject, Observer):
             self._deselect_tower()
     
     def _send_troops(self, source: Tower, target: Tower):
-        """Gửi quân từ source đến target"""
+        """Gửi quân từ source đến target với individual troops spawning gradually"""
         if source.owner != OwnerType.PLAYER:
             return
         
         troops_count = source.send_troops(target)
         if troops_count > 0:
-            # Tạo player troop
-            troop = PlayerTroop(
-                source.x, source.y,
+            # Tạo spawn queue thay vì spawn tất cả cùng lúc
+            self._create_troop_spawn_queue(
+                source.x, source.y, 
                 target.x, target.y,
-                troops_count
+                troops_count, 
+                OwnerType.PLAYER
             )
-            self._troops.append(troop)
             
-            # Notify observers
-            self.notify("troops_created", {
-                "troop": troop,
+            # Notify observers về troops creation
+            self.notify("troops_spawn_started", {
+                "count": troops_count,
                 "source": source,
                 "target": target
             })
+    
+    def _create_troop_spawn_queue(self, start_x: float, start_y: float, 
+                                  target_x: float, target_y: float, 
+                                  count: int, owner: str):
+        """Tạo spawn queue để troops xuất hiện dần dần từ tower với timing đều và tránh conflicts"""
+        if count <= 0:
+            return
+        
+        # Tìm thời gian spawn cuối cùng từ cùng tower để tránh conflicts
+        current_time = pygame.time.get_ticks()
+        last_spawn_time = current_time
+        
+        # Kiểm tra spawn queue hiện tại để tìm spawn time cuối cùng từ tower này
+        tower_entries = [entry for entry in self._spawn_queue 
+                        if abs(entry['x'] - start_x) < 5 and abs(entry['y'] - start_y) < 5 
+                        and entry['owner'] == owner]
+        
+        if tower_entries:
+            # Tìm thời gian spawn cuối cùng từ tower này
+            last_spawn_time = max(entry['spawn_time'] for entry in tower_entries)
+            # Thêm buffer 50ms để tránh overlap
+            last_spawn_time += 50
+        
+        # Tạo unique formation_id để nhóm troops cùng formation
+        formation_id = f"{owner}_{start_x}_{start_y}_{target_x}_{target_y}_{current_time}"
+        
+        # Tạo spawn queue entries với timing không conflicts
+        for i in range(count):
+            # Fixed delay 120ms giữa mỗi troop để spacing rõ ràng hơn
+            spawn_delay = i * 120  # 120ms = 0.12 giây delay để spacing rõ ràng
+            
+            spawn_entry = {
+                'x': start_x,  # Spawn từ tower position
+                'y': start_y,  # Spawn từ tower position
+                'target_x': target_x,
+                'target_y': target_y,
+                'owner': owner,
+                'spawn_time': last_spawn_time + spawn_delay,  # Dựa trên last_spawn_time
+                'formation_id': formation_id,
+                'formation_index': i  # Index trong formation
+            }
+            
+            self._spawn_queue.append(spawn_entry)
+            
+        # Sort spawn queue theo thời gian để đảm bảo thứ tự đúng
+        self._spawn_queue.sort(key=lambda x: x['spawn_time'])
+            
+        print(f"Created spawn queue for {count} {owner} troops with 120ms intervals, starting at {last_spawn_time}")
+
+    
+    def _process_spawn_queue(self):
+        """Xử lý spawn queue để troops xuất hiện dần dần với timing chính xác"""
+        if not self._spawn_queue:
+            return
+            
+        current_time = pygame.time.get_ticks()
+        spawned_count = 0
+        
+        # Xử lý tất cả entries đã đến thời gian spawn (có thể có lag)
+        while self._spawn_queue and current_time >= self._spawn_queue[0]['spawn_time']:
+            spawn_entry = self._spawn_queue[0]
+            
+            # Spawn troop trực tiếp từ tower đến target
+            if spawn_entry['owner'] == OwnerType.PLAYER:
+                troop = PlayerTroop(
+                    spawn_entry['x'], spawn_entry['y'],  # Start at tower
+                    spawn_entry['target_x'], spawn_entry['target_y'],   # Move directly to target
+                    1  # Individual troop
+                )
+            else:
+                troop = EnemyTroop(
+                    spawn_entry['x'], spawn_entry['y'],  # Start at tower
+                    spawn_entry['target_x'], spawn_entry['target_y'],   # Move directly to target
+                    1  # Individual troop
+                )
+            
+            troop._in_formation_phase = False
+            troop._formation_id = spawn_entry['formation_id']
+            
+            # Thêm vào troops list
+            self._troops.append(troop)
+            
+            # Xóa entry đã spawned
+            self._spawn_queue.pop(0)
+            spawned_count += 1
+            
+            # Notify observers về troop spawned
+            self.notify("troop_spawned", {
+                "troop": troop,
+                "owner": spawn_entry['owner']
+            })
+            
+            print(f"Spawned troop {spawn_entry['formation_index']} at time {current_time} (scheduled: {spawn_entry['spawn_time']})")
+            
+            # Giới hạn số troops spawn mỗi frame để tránh lag
+            if spawned_count >= 3:
+                break
+        
+        # Update troops list notification nếu có troops mới
+        if spawned_count > 0:
+            self.notify("troops_updated", {"troops": self._troops})
+            print(f"Spawned {spawned_count} troops this frame, {len(self._spawn_queue)} remaining in queue")
+    
+    # Formation calculation removed - troops spawn directly to target now
     
     def _handle_troops_sent(self, data: dict):
         """Xử lý event troops được gửi"""
@@ -266,6 +424,25 @@ class GameController(Subject, Observer):
         tower = data['tower']
         old_owner = data['old_owner']
         new_owner = data['new_owner']
+        
+        # Play tower capture sound effect với volume thấp hơn để không đè lên các sound khác
+        from ..utils.sound_manager import SoundManager
+        sound_manager = SoundManager()
+        sound_manager.play("tower_destroy", volume=0.6)  # Giảm từ 0.8 xuống 0.6
+        
+        # Notify observers about tower capture
+        self.notify("tower_captured", {
+            "tower": tower,
+            "old_owner": old_owner,
+            "new_owner": new_owner
+        })
+    
+    def _notify_tower_captured(self, tower, old_owner, new_owner):
+        """Helper method để notify tower capture với sound effect"""
+        # Play tower capture sound effect với volume thấp hơn để không đè lên các sound khác
+        from ..utils.sound_manager import SoundManager
+        sound_manager = SoundManager()
+        sound_manager.play("tower_destroy", volume=0.6)  # Giảm từ 0.8 xuống 0.6
         
         # Notify observers about tower capture
         self.notify("tower_captured", {
@@ -306,6 +483,9 @@ class GameController(Subject, Observer):
         if self._game_state != GameState.PLAYING:
             return
         
+        # Process spawn queue
+        self._process_spawn_queue()
+        
         # Update towers
         for tower in self._towers:
             tower.update(dt)
@@ -314,91 +494,212 @@ class GameController(Subject, Observer):
         self._update_troops(dt)
         
         # AI actions
-        ai_troop = self._ai_controller.execute_action(self._towers)
-        if ai_troop:
-            self._troops.append(ai_troop)
-            target_x, target_y = ai_troop.target_position
-            print(f"AI Action: Enemy tấn công từ ({ai_troop.x:.0f}, {ai_troop.y:.0f}) đến ({target_x:.0f}, {target_y:.0f}) với {ai_troop.count} quân")
+        ai_action = self._ai_controller.execute_action(self._towers)
+        if ai_action:
+            # AI cũng sử dụng spawn queue system
+            self._create_troop_spawn_queue(
+                ai_action['source'].x, ai_action['source'].y,
+                ai_action['target'].x, ai_action['target'].y,
+                ai_action['troops_count'],
+                OwnerType.ENEMY
+            )
+            print(f"AI Action: Enemy gửi {ai_action['troops_count']} quân từ ({ai_action['source'].x:.0f}, {ai_action['source'].y:.0f}) đến ({ai_action['target'].x:.0f}, {ai_action['target'].y:.0f})")
         
         # Check win condition
         self._check_win_condition()
     
     def _update_troops(self, dt: float):
-        """Update troops và xử lý combat + khi troops đến đích"""
+        """Update troops và xử lý tower arrivals TRƯỚC combat để tránh troops bị destroy trước khi chạm tower"""
         troops_to_remove = []
         
         # Update all troops
         for troop in self._troops:
             troop.update(dt)
         
-        # Check for troop-to-troop combat
-        self._handle_troop_combat()
-        
-        # Check for troops reaching destinations
+        # CRITICAL: Xử lý tower arrivals TRƯỚC combat để troops có cơ hội chạm tower
+        # Group troops by target towers để xử lý simultaneous arrivals
+        tower_arrivals = {}
         for i, troop in enumerate(self._troops):
+            # Check if troop reached target
             if troop.has_reached_target():
                 target_tower = self._find_target_tower(troop)
                 if target_tower:
-                    # Xử lý combat với tower
-                    was_captured = target_tower.receive_attack(troop.count, troop.owner)
-                    if was_captured:
-                        self.notify("tower_captured", {
-                            "tower": target_tower,
-                            "old_owner": target_tower.owner,
-                            "new_owner": troop.owner
-                        })
-                
-                troops_to_remove.append(i)
+                    if target_tower not in tower_arrivals:
+                        tower_arrivals[target_tower] = []
+                    tower_arrivals[target_tower].append((i, troop))
         
-        # Remove arrived troops
-        for i in reversed(troops_to_remove):
-            del self._troops[i]
+        # Process each tower's arrivals
+        for tower, arriving_troops in tower_arrivals.items():
+            # Sort by owner to handle conflicts
+            player_troops = [(i, t) for i, t in arriving_troops if t.owner == OwnerType.PLAYER]
+            enemy_troops = [(i, t) for i, t in arriving_troops if t.owner == OwnerType.ENEMY]
+            neutral_troops = [(i, t) for i, t in arriving_troops if t.owner == OwnerType.NEUTRAL]
+            
+            # Calculate total strengths
+            total_player_strength = sum(t.count for _, t in player_troops)
+            total_enemy_strength = sum(t.count for _, t in enemy_troops)
+            total_neutral_strength = sum(t.count for _, t in neutral_troops)
+            
+            print(f"Tower at ({tower.x}, {tower.y}) - Owner: {tower.owner}, Troops: {tower.troops}")
+            print(f"Arrivals - Player: {total_player_strength}, Enemy: {total_enemy_strength}, Neutral: {total_neutral_strength}")
+            
+            # Handle conflicts between player and enemy troops first
+            if total_player_strength > 0 and total_enemy_strength > 0:
+                print(f"Player vs Enemy conflict at tower")
+                if total_player_strength > total_enemy_strength:
+                    # Player wins
+                    remaining_strength = total_player_strength - total_enemy_strength
+                    print(f"Player wins with {remaining_strength} remaining troops")
+                    if remaining_strength > 0:
+                        old_owner = tower.owner  # Lưu owner cũ trước khi attack
+                        was_captured = tower.receive_attack(remaining_strength, OwnerType.PLAYER)
+                        if was_captured:
+                            self._notify_tower_captured(tower, old_owner, OwnerType.PLAYER)
+                elif total_enemy_strength > total_player_strength:
+                    # Enemy wins
+                    remaining_strength = total_enemy_strength - total_player_strength
+                    print(f"Enemy wins with {remaining_strength} remaining troops")
+                    if remaining_strength > 0:
+                        old_owner = tower.owner  # Lưu owner cũ trước khi attack
+                        was_captured = tower.receive_attack(remaining_strength, OwnerType.ENEMY)
+                        if was_captured:
+                            self._notify_tower_captured(tower, old_owner, OwnerType.ENEMY)
+                else:
+                    print(f"Equal strength - both sides cancel out")
+                # Mark all conflicting troops for removal
+                for i, _ in player_troops + enemy_troops:
+                    if i not in troops_to_remove:
+                        troops_to_remove.append(i)
+            else:
+                # No player vs enemy conflict - process each owner group separately
+                if total_player_strength > 0:
+                    print(f"Player attacking tower with {total_player_strength} troops")
+                    old_owner = tower.owner  # Lưu owner cũ trước khi attack
+                    was_captured = tower.receive_attack(total_player_strength, OwnerType.PLAYER)
+                    if was_captured:
+                        self._notify_tower_captured(tower, old_owner, OwnerType.PLAYER)
+                    for i, _ in player_troops:
+                        if i not in troops_to_remove:
+                            troops_to_remove.append(i)
+                
+                if total_enemy_strength > 0:
+                    print(f"Enemy attacking tower with {total_enemy_strength} troops")
+                    old_owner = tower.owner  # Lưu owner cũ trước khi attack
+                    was_captured = tower.receive_attack(total_enemy_strength, OwnerType.ENEMY)
+                    if was_captured:
+                        self._notify_tower_captured(tower, old_owner, OwnerType.ENEMY)
+                    for i, _ in enemy_troops:
+                        if i not in troops_to_remove:
+                            troops_to_remove.append(i)
+                
+                if total_neutral_strength > 0:
+                    print(f"Neutral attacking tower with {total_neutral_strength} troops")
+                    old_owner = tower.owner  # Lưu owner cũ trước khi attack
+                    was_captured = tower.receive_attack(total_neutral_strength, OwnerType.NEUTRAL)
+                    if was_captured:
+                        self._notify_tower_captured(tower, old_owner, OwnerType.NEUTRAL)
+                    for i, _ in neutral_troops:
+                        if i not in troops_to_remove:
+                            troops_to_remove.append(i)
+        
+        # Remove arrived troops BEFORE checking combat
+        for i in reversed(sorted(troops_to_remove)):
+            if i < len(self._troops):
+                del self._troops[i]
+        
+        # Sau khi xử lý tower arrivals, mới xử lý troop-to-troop combat
+        self._handle_troop_combat()
     
     def _handle_troop_combat(self):
-        """Xử lý combat giữa các troops"""
+        """Xử lý combat giữa các troops với simplified collision detection - 1 vs 1 combat only"""
         troops_to_remove = []
+        troops_in_combat = set()  # Track troops đã combat trong update này
         
         for i in range(len(self._troops)):
-            if i in troops_to_remove:
+            if i in troops_to_remove or i in troops_in_combat:
                 continue
                 
             troop1 = self._troops[i]
             
             for j in range(i + 1, len(self._troops)):
-                if j in troops_to_remove:
+                if j in troops_to_remove or j in troops_in_combat:
                     continue
                     
                 troop2 = self._troops[j]
                 
-                # Kiểm tra collision giữa troops khác owner
-                if troop1.is_colliding_with(troop2):
-                    print(f"Combat: {troop1.owner} ({troop1.count}) vs {troop2.owner} ({troop2.count})")
+                # Enhanced collision detection cho troops khác owner
+                if troop1.owner != troop2.owner:
+                    # Kiểm tra distance trực tiếp
+                    distance = ((troop1.x - troop2.x)**2 + (troop1.y - troop2.y)**2)**0.5
+                    collision_threshold = troop1.radius + troop2.radius + 15  # Buffer zone
                     
-                    # Thực hiện combat
-                    winner1, winner2 = troop1.combat_with(troop2)
-                    
-                    # Xử lý kết quả combat
-                    if winner1 is None:
-                        troops_to_remove.append(i)
-                    if winner2 is None:
-                        troops_to_remove.append(j)
-                    
-                    # Chỉ xử lý một combat per troop per update
-                    break
+                    if distance <= collision_threshold:
+                        print(f"Combat detected: {troop1.owner} ({troop1.count}) at ({troop1.x:.1f},{troop1.y:.1f}) vs {troop2.owner} ({troop2.count}) at ({troop2.x:.1f},{troop2.y:.1f}) - distance: {distance:.1f}")
+                        
+                        # Thực hiện combat
+                        winner1, winner2 = troop1.combat_with(troop2)
+                        
+                        # Mark cả 2 troops đã combat
+                        troops_in_combat.add(i)
+                        troops_in_combat.add(j)
+                        
+                        # Xử lý kết quả combat
+                        if winner1 is None:
+                            print(f"Troop1 ({troop1.owner}) defeated")
+                            troops_to_remove.append(i)
+                        if winner2 is None:
+                            print(f"Troop2 ({troop2.owner}) defeated")
+                            troops_to_remove.append(j)
+                        
+                        # Play combat sound
+                        self.notify("combat_occurred", {
+                            "winner": winner1.owner if winner1 else (winner2.owner if winner2 else "draw"),
+                            "position": (troop1.x, troop1.y)
+                        })
+                        
+                        # CRITICAL: Break sau combat để troop1 không combat với troops khác
+                        break
         
         # Remove defeated troops
         for i in reversed(sorted(troops_to_remove)):
             if i < len(self._troops):
+                print(f"Removing defeated troop at index {i}")
                 del self._troops[i]
     
     def _find_target_tower(self, troop: Troop) -> Optional[Tower]:
-        """Tìm tower target của troop"""
+        """Tìm tower mà troop đang chạm với improved detection để catch troops sớm hơn"""
         target_x, target_y = troop.target_position
         
+        # Tìm tower gần target position nhất
+        closest_tower = None
+        min_distance_to_target = float('inf')
+        
         for tower in self._towers:
-            distance = ((tower.x - target_x)**2 + (tower.y - target_y)**2)**0.5
-            if distance <= tower.radius:
+            # Kiểm tra distance từ troop position đến tower
+            distance_from_troop = ((tower.x - troop.x)**2 + (tower.y - troop.y)**2)**0.5
+            distance_from_target = ((tower.x - target_x)**2 + (tower.y - target_y)**2)**0.5
+            
+            # Enhanced collision detection với larger buffer để catch troops sớm hơn
+            tower_collision_radius = tower.radius + troop.radius + 20  # Increased buffer
+            
+            # PRIORITY 1: Troop đã trong vùng collision của tower
+            if distance_from_troop <= tower_collision_radius:
+                print(f"Direct collision: Troop at ({troop.x:.1f}, {troop.y:.1f}) hit tower at ({tower.x}, {tower.y}) - distance: {distance_from_troop:.1f}")
                 return tower
+            
+            # Track closest tower to target for secondary check
+            if distance_from_target < min_distance_to_target:
+                min_distance_to_target = distance_from_target
+                closest_tower = tower
+        
+        # PRIORITY 2: Fallback - return closest tower if target is very close to it
+        if closest_tower and min_distance_to_target <= closest_tower.radius + 5:
+            # Additional check: troop should be moving towards this tower
+            troop_to_closest = ((closest_tower.x - troop.x)**2 + (closest_tower.y - troop.y)**2)**0.5
+            if troop_to_closest <= closest_tower.radius + 30:  # Generous buffer
+                print(f"Fallback collision: Troop at ({troop.x:.1f}, {troop.y:.1f}) caught by closest tower at ({closest_tower.x}, {closest_tower.y})")
+                return closest_tower
+            
         return None
     
     def _check_win_condition(self):
@@ -483,6 +784,7 @@ class GameController(Subject, Observer):
         self._game_state = GameState.PLAYING
         self._towers.clear()
         self._troops.clear()
+        self._spawn_queue.clear()  # Clear spawn queue
         self._selected_tower = None
         self._winner = None
         self._game_ended = False  # Reset flag
@@ -523,18 +825,14 @@ class GameController(Subject, Observer):
         print("Game restarted successfully")
     
     def _create_initial_towers_for_level(self, level_config: dict):
-        """Tạo towers ban đầu theo config của level"""
+        """Tạo towers ban đầu theo config của level với vị trí động"""
         import random
         
-        # Vị trí cố định cho player và enemy towers để tránh gần nhau
-        player_positions = [(100, 200), (100, 500), (120, 350)]
-        enemy_positions = [(900, 200), (900, 500), (880, 350)]
-        neutral_positions = [
-            (500, 150), (500, 450), (500, 600),
-            (350, 300), (650, 300), (400, 550), (600, 550)
-        ]
+        # Calculate dynamic positions
+        positions = self._calculate_tower_positions()
         
         # Tạo player towers
+        player_positions = positions['player']
         for i in range(level_config['player_towers']):
             if i < len(player_positions):
                 x, y = player_positions[i]
@@ -542,6 +840,7 @@ class GameController(Subject, Observer):
                 self._towers.append(tower)
         
         # Tạo enemy towers
+        enemy_positions = positions['enemy']
         for i in range(level_config['enemy_towers']):
             if i < len(enemy_positions):
                 x, y = enemy_positions[i]
@@ -550,18 +849,20 @@ class GameController(Subject, Observer):
                 self._towers.append(tower)
                 
         # Tạo neutral towers
-        random.shuffle(neutral_positions)  # Chỉ shuffle neutral positions
+        neutral_positions = positions['neutral'].copy()
+        random.shuffle(neutral_positions)  # Shuffle để có variation
         for i in range(level_config['neutral_towers']):
             if i < len(neutral_positions):
                 x, y = neutral_positions[i]
-                tower = Tower(x, y, OwnerType.NEUTRAL, level_config['initial_troops'])
+                neutral_troops = random.randint(5, 15)  # Random troops for neutral towers
+                tower = Tower(x, y, OwnerType.NEUTRAL, neutral_troops)
                 self._towers.append(tower)
         
         enemy_troops = level_config.get('enemy_initial_troops', level_config['initial_troops'])
         player_troops = level_config['initial_troops']
         print(f"Created level: {level_config['player_towers']} player towers ({player_troops} troops each), "
               f"{level_config['enemy_towers']} enemy towers ({enemy_troops} troops each), "
-              f"{level_config['neutral_towers']} neutral towers")
+              f"{level_config['neutral_towers']} neutral towers (dynamic positioning)")
     
     def pause_game(self):
         """Pause/unpause game"""

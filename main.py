@@ -25,11 +25,19 @@ class TowerWarGame(Observer):
         # Setup display
         self.screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
         pygame.display.set_caption("Tower War")
+        self.fullscreen = False
+        
+        # Scaling for fullscreen mode
+        self.scale_x = 1.0
+        self.scale_y = 1.0
+        self.scale = 1.0
+        self.offset_x = 0
+        self.offset_y = 0
         
         # Views
-        self.menu_manager = MenuManager()
-        self.level_select_view = LevelSelectView()
-        self.game_result_view = GameResultView()
+        self.menu_manager = MenuManager(self.screen)
+        self.level_select_view = LevelSelectView(self.screen)
+        self.game_result_view = GameResultView(self.screen)
         
         # Game components (MVC Pattern) - lazy initialization
         self.controller = None
@@ -67,6 +75,9 @@ class TowerWarGame(Observer):
             # Setup Observer relationships
             self.controller.attach(self.view)
             self.controller.attach(self)  # Listen for game events
+            
+            # Update level select view với level manager reference
+            self.level_select_view.level_manager = self.controller.level_manager
         
         # Set level và restart game
         if self.controller:
@@ -93,6 +104,14 @@ class TowerWarGame(Observer):
     
     def show_level_select(self):
         """Hiển thị level selection"""
+        # Đảm bảo controller và level manager đã được khởi tạo
+        if not self.controller:
+            self.start_game(1)  # Khởi tạo controller với level 1
+            self.return_to_menu()  # Quay về menu sau khi khởi tạo
+        
+        # Cập nhật level manager reference cho level select view
+        self.level_select_view.level_manager = self.controller.level_manager
+        
         self.app_state = "level_select"
         print("Showing level selection")
     
@@ -162,9 +181,30 @@ class TowerWarGame(Observer):
             if event.type == pygame.QUIT:
                 self.running = False
             
+            # Handle F11 globally across all states
+            if event.type == pygame.KEYDOWN and event.key == pygame.K_F11:
+                self.toggle_fullscreen()
+                continue
+            
+            # Scale mouse events if in fullscreen
+            scaled_event = event
+            if event.type in [pygame.MOUSEBUTTONDOWN, pygame.MOUSEBUTTONUP, pygame.MOUSEMOTION]:
+                if self.fullscreen and self.scale != 1.0:
+                    mouse_x, mouse_y = event.pos
+                    # Convert screen coordinates to game coordinates
+                    mouse_x = (mouse_x - self.offset_x) / self.scale
+                    mouse_y = (mouse_y - self.offset_y) / self.scale
+                    # Clamp to game area
+                    mouse_x = max(0, min(SCREEN_WIDTH, mouse_x))
+                    mouse_y = max(0, min(SCREEN_HEIGHT, mouse_y))
+                    
+                    # Create new event with scaled coordinates
+                    scaled_event = pygame.event.Event(event.type, event.dict)
+                    scaled_event.pos = (int(mouse_x), int(mouse_y))
+            
             if self.app_state == "menu":
                 # Menu events
-                action = self.menu_manager.handle_event(event)
+                action = self.menu_manager.handle_event(scaled_event)
                 if action == "start_game":
                     self.show_level_select()
                 elif action == "quit":
@@ -172,7 +212,7 @@ class TowerWarGame(Observer):
                     
             elif self.app_state == "level_select":
                 # Level selection events
-                action = self.level_select_view.handle_event(event)
+                action = self.level_select_view.handle_event(scaled_event)
                 if action and action.startswith("level_"):
                     level = int(action.split("_")[1])
                     self.start_game(level)
@@ -181,7 +221,7 @@ class TowerWarGame(Observer):
                     
             elif self.app_state == "result":
                 # Game result events
-                action = self.game_result_view.handle_event(event)
+                action = self.game_result_view.handle_event(scaled_event)
                 if action == "next_level":
                     self.start_next_level()
                 elif action == "play_again":
@@ -192,14 +232,14 @@ class TowerWarGame(Observer):
                     
             elif self.app_state == "game":
                 # Game events
-                if event.type == pygame.KEYDOWN:
-                    self._handle_keydown(event)
-                elif event.type == pygame.KEYUP:
-                    self._handle_keyup(event)
-                elif event.type == pygame.MOUSEBUTTONDOWN:
-                    self._handle_mouse_click(event)
-                elif event.type == pygame.MOUSEMOTION:
-                    self._handle_mouse_motion(event)
+                if scaled_event.type == pygame.KEYDOWN:
+                    self._handle_keydown(scaled_event)
+                elif scaled_event.type == pygame.KEYUP:
+                    self._handle_keyup(scaled_event)
+                elif scaled_event.type == pygame.MOUSEBUTTONDOWN:
+                    self._handle_mouse_click(scaled_event)
+                elif scaled_event.type == pygame.MOUSEMOTION:
+                    self._handle_mouse_motion(scaled_event)
     
     def _handle_keydown(self, event):
         """Handle key press events"""
@@ -214,16 +254,14 @@ class TowerWarGame(Observer):
             if self.controller.game_state == GameState.PLAYING:
                 self.controller.pause_game()
                 if self.view:
+                    # Sync current sound settings to pause menu
+                    self._sync_sound_settings_to_pause_menu()
                     self.view.show_pause_menu()
             elif self.controller.game_state == GameState.PAUSED:
                 self.controller.pause_game()
                 if self.view:
                     self.view.hide_pause_menu()
             return
-            
-        # R to restart when game over
-        if event.key == pygame.K_r and self.controller.game_state == GameState.GAME_OVER:
-            self.controller.restart_game()
         
         # Handle level complete inputs
         elif self.controller.game_state == GameState.LEVEL_COMPLETE:
@@ -234,56 +272,20 @@ class TowerWarGame(Observer):
             if self.controller.game_state == GameState.PLAYING:
                 self.controller.pause_game()
                 if self.view:
+                    # Sync current sound settings to pause menu
+                    self._sync_sound_settings_to_pause_menu()
                     self.view.show_pause_menu()
             elif self.controller.game_state == GameState.PAUSED:
                 self.controller.pause_game()
                 if self.view:
                     self.view.hide_pause_menu()
-        
-        # Q to quit to menu (new shortcut)
-        elif event.key == pygame.K_q:
-            self.return_to_menu()
-            return
-        
-        # Debug controls - only work if game is playing
-        elif event.key == pygame.K_F1 and self.controller.game_state == GameState.PLAYING:
-            self.debug_mode = not self.debug_mode
-            print(f"Debug mode: {'ON' if self.debug_mode else 'OFF'}")
-        
-        elif event.key == pygame.K_F2 and self.controller.game_state == GameState.PLAYING:
-            if self.view:
-                self.view.toggle_grid()
-                print("Grid toggled")
-        
-        elif event.key == pygame.K_F3:
-            # Screenshot - works anytime
-            import datetime
-            timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
-            filename = f"screenshot_{timestamp}.png"
-            if self.view:
-                self.view.capture_screenshot(filename)
-            print(f"Screenshot saved: {filename}")
-        
-        # AI difficulty controls - only work if game is playing
-        elif event.key == pygame.K_1 and self.controller.game_state == GameState.PLAYING:
-            if self.controller:
-                self.controller.set_ai_difficulty('easy')
-                print("AI Difficulty: Easy")
-        
-        elif event.key == pygame.K_2 and self.controller.game_state == GameState.PLAYING:
-            if self.controller:
-                self.controller.set_ai_difficulty('medium')
-                print("AI Difficulty: Medium")
-        
-        elif event.key == pygame.K_3 and self.controller.game_state == GameState.PLAYING:
-            if self.controller:
-                self.controller.set_ai_difficulty('hard')
-                print("AI Difficulty: Hard")
-        
-        elif event.key == pygame.K_3:
-            if self.controller:
-                self.controller.set_ai_difficulty('hard')
-                print("AI Difficulty: Hard")
+    
+    def _sync_sound_settings_to_pause_menu(self):
+        """Sync current sound settings to pause menu"""
+        if self.view and self.view.pause_menu:
+            # Get current settings from menu manager
+            self.view.pause_menu.sound_enabled = self.menu_manager.is_sound_enabled()
+            self.view.pause_menu.music_enabled = self.menu_manager.is_music_enabled()
     
     def _handle_keyup(self, event):
         """Handle key release events"""
@@ -311,6 +313,34 @@ class TowerWarGame(Observer):
                 elif ui_action == "menu":
                     self.return_to_menu()
                     print("Returned to menu")
+                elif ui_action == "toggle_sound":
+                    # Toggle sound effects in pause menu
+                    if self.view and hasattr(self.view, 'pause_menu'):
+                        self.view.pause_menu.sound_enabled = not self.view.pause_menu.sound_enabled
+                        # Update sound manager
+                        from src.utils.sound_manager import SoundManager
+                        sound_manager = SoundManager()
+                        if self.view.pause_menu.sound_enabled:
+                            sound_manager.set_sfx_volume(0.7)
+                        else:
+                            sound_manager.set_sfx_volume(0.0)
+                        print(f"Sound effects {'enabled' if self.view.pause_menu.sound_enabled else 'disabled'}")
+                        # Sync back to menu manager
+                        self.menu_manager.settings_menu.sound_enabled = self.view.pause_menu.sound_enabled
+                elif ui_action == "toggle_music":
+                    # Toggle background music in pause menu
+                    if self.view and hasattr(self.view, 'pause_menu'):
+                        self.view.pause_menu.music_enabled = not self.view.pause_menu.music_enabled
+                        # Update sound manager
+                        from src.utils.sound_manager import SoundManager
+                        sound_manager = SoundManager()
+                        if self.view.pause_menu.music_enabled:
+                            sound_manager.set_music_volume(0.5)
+                        else:
+                            sound_manager.set_music_volume(0.0)
+                        print(f"Background music {'enabled' if self.view.pause_menu.music_enabled else 'disabled'}")
+                        # Sync back to menu manager
+                        self.menu_manager.settings_menu.music_enabled = self.view.pause_menu.music_enabled
                 else:
                     # Game click - only if not paused
                     if self.controller.game_state == GameState.PLAYING:
@@ -347,44 +377,68 @@ class TowerWarGame(Observer):
         # Clear screen
         self.screen.fill((0, 0, 0))
         
+        # Create a surface for the game content
+        if self.fullscreen and self.scale != 1.0:
+            # Create a surface with original game size
+            game_surface = pygame.Surface((SCREEN_WIDTH, SCREEN_HEIGHT))
+            game_surface.fill((0, 0, 0))
+            current_surface = game_surface
+        else:
+            current_surface = self.screen
+        
         if self.app_state == "menu":
             # Render menu
-            self.menu_manager.render(self.screen)
+            self.menu_manager.render(current_surface)
             
         elif self.app_state == "level_select":
             # Render level selection
-            self.level_select_view.draw(self.screen)
+            self.level_select_view.draw(current_surface)
             
         elif self.app_state == "game":
             # Render game
             if self.view:
+                # Temporarily update view's screen reference for fullscreen
+                original_screen = self.view.screen
+                self.view.screen = current_surface
                 self.view.draw(dt)
+                self.view.screen = original_screen  # Restore
                 
                 # Debug overlay
                 if self.debug_mode:
-                    self._render_debug_info()
+                    self._render_debug_info(current_surface)
                     
         elif self.app_state == "result":
             # Render game result - don't draw game view to prevent flickering
             # Clear screen with black background
-            self.screen.fill((0, 0, 0))
+            current_surface.fill((0, 0, 0))
             
             # Draw result overlay only
             if self.winner == OwnerType.PLAYER:
                 all_complete = self.current_level >= 3 and not self.has_next_level
                 self.game_result_view.draw_win_screen(
-                    self.screen, self.current_level, self.has_next_level, all_complete
+                    current_surface, self.current_level, self.has_next_level, all_complete
                 )
             else:
-                self.game_result_view.draw_lose_screen(self.screen, self.current_level)
+                self.game_result_view.draw_lose_screen(current_surface, self.current_level)
+        
+        # Scale and blit to actual screen if in fullscreen
+        if self.fullscreen and self.scale != 1.0:
+            # Scale the game surface maintaining aspect ratio
+            scaled_width = int(SCREEN_WIDTH * self.scale)
+            scaled_height = int(SCREEN_HEIGHT * self.scale)
+            scaled_surface = pygame.transform.scale(game_surface, (scaled_width, scaled_height))
+            self.screen.blit(scaled_surface, (self.offset_x, self.offset_y))
         
         # Update display
         pygame.display.flip()
     
-    def _render_debug_info(self):
+    def _render_debug_info(self, surface=None):
         """Render debug information overlay"""
         if not self.controller:
             return
+        
+        if surface is None:
+            surface = self.screen
             
         import pygame.font
         font = pygame.font.Font(None, 24)
@@ -402,7 +456,7 @@ class TowerWarGame(Observer):
         y_offset = 10
         for info in debug_info:
             text_surface = font.render(info, True, (255, 255, 0))
-            self.screen.blit(text_surface, (10, y_offset))
+            surface.blit(text_surface, (10, y_offset))
             y_offset += 25
     
     def _cleanup(self):
@@ -410,6 +464,52 @@ class TowerWarGame(Observer):
         print("Cleaning up game resources...")
         pygame.quit()
         sys.exit()
+    
+    def toggle_fullscreen(self):
+        """Toggle between fullscreen and windowed mode"""
+        self.fullscreen = not self.fullscreen
+        if self.fullscreen:
+            # Get current display info to scale properly
+            info = pygame.display.Info()
+            screen_width = info.current_w
+            screen_height = info.current_h
+            
+            self.screen = pygame.display.set_mode((screen_width, screen_height), pygame.FULLSCREEN)
+            print(f"Switched to fullscreen mode ({screen_width}x{screen_height})")
+            
+            # Calculate scaling factors while keeping aspect ratio
+            scale_x = screen_width / SCREEN_WIDTH
+            scale_y = screen_height / SCREEN_HEIGHT
+            # Use the smaller scale to maintain aspect ratio
+            self.scale = min(scale_x, scale_y)
+            self.scale_x = self.scale
+            self.scale_y = self.scale
+            
+            # Calculate scaled dimensions and center the game
+            scaled_width = int(SCREEN_WIDTH * self.scale)
+            scaled_height = int(SCREEN_HEIGHT * self.scale)
+            self.offset_x = (screen_width - scaled_width) // 2
+            self.offset_y = (screen_height - scaled_height) // 2
+        else:
+            self.screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
+            print("Switched to windowed mode")
+            
+            # Reset scaling
+            self.scale_x = 1.0
+            self.scale_y = 1.0  
+            self.scale = 1.0
+            self.offset_x = 0
+            self.offset_y = 0
+        
+        # Update views with new screen
+        if self.view:
+            self.view.screen = self.screen
+        
+        # Update all other views with new screen
+        self.menu_manager.screen = self.screen
+        self.level_select_view.screen = self.screen
+        self.game_result_view.screen = self.screen
+
 
 def main():
     """Entry point"""

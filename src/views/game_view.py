@@ -8,7 +8,7 @@ from ..models.base import Observer
 from ..models.tower import Tower
 from ..models.troop import Troop
 from ..views.ui_view import GameHUD, GameOverScreen, PauseMenu
-from ..utils.constants import Colors, SCREEN_WIDTH, SCREEN_HEIGHT, GameState
+from ..utils.constants import Colors, SCREEN_WIDTH, SCREEN_HEIGHT, GameState, GameSettings
 
 class GameView(Observer):
     """
@@ -24,6 +24,9 @@ class GameView(Observer):
         from ..utils.image_manager import ImageManager
         self.image_manager = ImageManager()
         self.background_image = self.image_manager.get_image("background_game")
+        
+        # Scaling factor for consistent rendering
+        self.scale_factor = 1.0
         
         # UI Components
         self.hud = GameHUD()
@@ -165,6 +168,22 @@ class GameView(Observer):
         Main draw method
         Template Method Pattern - định nghĩa skeleton của rendering process
         """
+        # Calculate current scale factor for consistent rendering
+        screen_width = self.screen.get_width()
+        screen_height = self.screen.get_height()
+        scale_x = screen_width / SCREEN_WIDTH
+        scale_y = screen_height / SCREEN_HEIGHT
+        self.scale_factor = min(scale_x, scale_y)  # Use uniform scaling to maintain aspect ratio
+        
+        # Update UI components with current screen
+        # Update UI components screen references
+        if hasattr(self.hud, 'screen'):
+            self.hud.screen = self.screen
+        if hasattr(self.game_over_screen, 'screen'):
+            self.game_over_screen.screen = self.screen
+        if hasattr(self.pause_menu, 'screen'):
+            self.pause_menu.screen = self.screen
+            
         # Clear screen
         self._clear_screen()
         
@@ -183,7 +202,11 @@ class GameView(Observer):
     def _clear_screen(self):
         """Clear screen với background color hoặc background image"""
         if self.background_image:
-            self.screen.blit(self.background_image, (0, 0))
+            # Scale background to fit current screen size
+            screen_width = self.screen.get_width()
+            screen_height = self.screen.get_height()
+            scaled_bg = pygame.transform.scale(self.background_image, (screen_width, screen_height))
+            self.screen.blit(scaled_bg, (0, 0))
         else:
             self.screen.fill(self.background_color)
     
@@ -194,16 +217,19 @@ class GameView(Observer):
     
     def _draw_grid(self):
         """Draw grid để debug hoặc visual aid"""
+        screen_width = self.screen.get_width()
+        screen_height = self.screen.get_height()
+        
         grid_size = 50
         grid_color = (230, 230, 230)
         
         # Vertical lines
-        for x in range(0, SCREEN_WIDTH, grid_size):
-            pygame.draw.line(self.screen, grid_color, (x, 0), (x, SCREEN_HEIGHT))
+        for x in range(0, screen_width, grid_size):
+            pygame.draw.line(self.screen, grid_color, (x, 0), (x, screen_height))
         
         # Horizontal lines
-        for y in range(0, SCREEN_HEIGHT, grid_size):
-            pygame.draw.line(self.screen, grid_color, (0, y), (SCREEN_WIDTH, y))
+        for y in range(0, screen_height, grid_size):
+            pygame.draw.line(self.screen, grid_color, (0, y), (screen_width, y))
     
     def _draw_game_objects(self, dt: float):
         """Draw all game objects"""
@@ -220,81 +246,205 @@ class GameView(Observer):
         self._draw_tower_connections()
     
     def _draw_towers(self):
-        """Draw all towers"""
+        """Draw all towers with proper scaling"""
         for tower in self.towers:
             if tower.active:
-                tower.draw(self.screen)
+                self._draw_scaled_tower(tower)
                 
                 # Draw additional effects for selected tower
                 if tower.selected:
                     self._draw_selection_effect(tower)
     
+    def _draw_scaled_tower(self, tower: Tower):
+        """Draw a single tower with scaling"""
+        # Calculate scaled position
+        scaled_x = int(tower.x * self.scale_factor)
+        scaled_y = int(tower.y * self.scale_factor)
+        scaled_radius = int(tower.radius * self.scale_factor)
+        
+        # Get tower image based on owner
+        image_name = f"tower_{tower.owner}"
+        tower_image = tower.image_manager.get_image(image_name)
+        
+        if tower_image:
+            # Calculate scaled size
+            original_width = tower_image.get_width()
+            original_height = tower_image.get_height()
+            scaled_width = int(original_width * self.scale_factor * tower._scale)
+            scaled_height = int(original_height * self.scale_factor * tower._scale)
+            
+            # Scale and rotate image
+            scaled_image = pygame.transform.smoothscale(tower_image, (scaled_width, scaled_height))
+            rotated_image = pygame.transform.rotate(scaled_image, tower._rotation)
+            
+            # Center the image on scaled position
+            image_rect = rotated_image.get_rect(center=(scaled_x, scaled_y))
+            self.screen.blit(rotated_image, image_rect)
+        else:
+            # Fallback: draw circle with scaled dimensions
+            color = tower.get_color()
+            pygame.draw.circle(self.screen, color, (scaled_x, scaled_y), scaled_radius)
+            pygame.draw.circle(self.screen, Colors.BLACK, (scaled_x, scaled_y), scaled_radius, 2)
+        
+        # Draw selection highlight
+        if tower.selected:
+            pygame.draw.circle(self.screen, Colors.WHITE, (scaled_x, scaled_y), scaled_radius + 5, 3)
+        
+        # Draw troops text with scaling
+        self._draw_scaled_troops_text(tower, scaled_x, scaled_y, scaled_radius)
+    
+    def _draw_scaled_troops_text(self, tower: Tower, x: int, y: int, radius: int):
+        """Draw troops text with proper scaling"""
+        try:
+            font_size = int(GameSettings.FONT_MEDIUM * self.scale_factor)
+            font = pygame.font.SysFont('Arial', font_size, bold=True)
+        except:
+            font_size = int(24 * self.scale_factor)  # Fallback size
+            font = pygame.font.Font(None, font_size)
+        
+        # Render text
+        text = font.render(str(tower.troops), True, Colors.WHITE)
+        text_rect = text.get_rect(midbottom=(x, y - radius - int(4 * self.scale_factor)))
+        
+        # Draw shadow for better visibility
+        shadow = font.render(str(tower.troops), True, Colors.BLACK)
+        shadow_rect = shadow.get_rect(midbottom=(x + 1, y - radius - int(3 * self.scale_factor)))
+        
+        self.screen.blit(shadow, shadow_rect)
+        self.screen.blit(text, text_rect)
+    
     def _draw_selection_effect(self, tower: Tower):
         """
-        Draw selection effect cho selected tower
+        Draw selection effect cho selected tower with proper scaling
         Animated pulse effect
         """
         import math
         
+        # Calculate scaled position and radius
+        scaled_x = int(tower.x * self.scale_factor)
+        scaled_y = int(tower.y * self.scale_factor)
+        scaled_radius = int(tower.radius * self.scale_factor)
+        
         # Pulse effect
         pulse_factor = (math.sin(self.selection_pulse_time * 5) + 1) / 2  # 0-1
-        pulse_radius = tower.radius + 5 + (pulse_factor * 10)
+        pulse_radius = scaled_radius + int(5 * self.scale_factor) + int(pulse_factor * 10 * self.scale_factor)
         
         # Draw pulsing circle
         alpha = int(100 + (pulse_factor * 100))  # 100-200
         
         # Create surface with alpha
-        pulse_surface = pygame.Surface((pulse_radius * 4, pulse_radius * 4))
+        surface_size = int(pulse_radius * 4)
+        pulse_surface = pygame.Surface((surface_size, surface_size))
         pulse_surface.set_alpha(alpha)
         pulse_surface.fill(Colors.WHITE)
         
         pygame.draw.circle(pulse_surface, Colors.BLUE, 
-                         (pulse_radius * 2, pulse_radius * 2), 
-                         int(pulse_radius), 3)
+                         (surface_size // 2, surface_size // 2), 
+                         pulse_radius, max(1, int(3 * self.scale_factor)))
         
         # Blit pulse surface
-        pulse_rect = pulse_surface.get_rect(center=(tower.x, tower.y))
+        pulse_rect = pulse_surface.get_rect(center=(scaled_x, scaled_y))
         self.screen.blit(pulse_surface, pulse_rect)
     
     def _draw_troops(self):
-        """Draw all troops"""
+        """Draw all troops with proper scaling - simplified without paths"""
         for troop in self.troops:
             if troop.active:
-                troop.draw(self.screen)
-                
-                # Draw movement trail
-                self._draw_troop_trail(troop)
+                self._draw_scaled_troop(troop)
     
-    def _draw_troop_trail(self, troop: Troop):
-        """
-        Draw trail effect cho moving troops
-        """
-        # Simple trail effect - draw line from current position towards start
-        trail_length = 20
-        trail_color = tuple(c // 2 for c in troop.get_color())  # Darker version
+    def _draw_scaled_troop(self, troop: Troop):
+        """Draw a single troop with scaling"""
+        scaled_x = int(troop.x * self.scale_factor)
+        scaled_y = int(troop.y * self.scale_factor)
+        scaled_radius = max(1, int(troop.radius * self.scale_factor))
         
-        # Calculate trail start position
+        # Draw troop circle with scaled dimensions
+        color = troop.get_color()
+        pygame.draw.circle(self.screen, color, (scaled_x, scaled_y), scaled_radius)
+        pygame.draw.circle(self.screen, Colors.BLACK, (scaled_x, scaled_y), scaled_radius, max(1, int(self.scale_factor)))
+    
+    def _draw_troop_direction_arrow(self, troop: Troop, scaled_x: int, scaled_y: int, scaled_radius: int):
+        """Draw direction arrow on troop"""
         import math
-        target_x, target_y = troop.target_position
-        distance_total = math.sqrt((target_x - troop.x)**2 + (target_y - troop.y)**2)
         
-        if distance_total > 0:
+        target_x, target_y = troop.target_position
+        
+        # Calculate direction vector
+        dx = target_x - troop.x
+        dy = target_y - troop.y
+        distance = math.sqrt(dx*dx + dy*dy)
+        
+        if distance > 0:
             # Normalize direction
-            dx = (target_x - troop.x) / distance_total
-            dy = (target_y - troop.y) / distance_total
+            norm_dx = dx / distance
+            norm_dy = dy / distance
             
-            # Trail start position
-            trail_start_x = troop.x - dx * trail_length
-            trail_start_y = troop.y - dy * trail_length
+            # Arrow parameters
+            arrow_length = scaled_radius * 0.8
+            arrow_head_size = scaled_radius * 0.4
             
-            # Draw trail line
-            pygame.draw.line(self.screen, trail_color,
-                           (trail_start_x, trail_start_y),
-                           (troop.x, troop.y), 2)
+            # Arrow end point (inside the troop circle)
+            arrow_end_x = scaled_x + norm_dx * arrow_length
+            arrow_end_y = scaled_y + norm_dy * arrow_length
+            
+            # Arrow start point
+            arrow_start_x = scaled_x - norm_dx * arrow_length * 0.3
+            arrow_start_y = scaled_y - norm_dy * arrow_length * 0.3
+            
+            # Draw arrow shaft
+            pygame.draw.line(self.screen, Colors.WHITE, 
+                           (arrow_start_x, arrow_start_y), 
+                           (arrow_end_x, arrow_end_y), 
+                           max(1, int(2 * self.scale_factor)))
+            
+            # Draw arrow head
+            head_angle = math.atan2(norm_dy, norm_dx)
+            head_angle1 = head_angle + 2.5  # 143 degrees
+            head_angle2 = head_angle - 2.5  # 143 degrees
+            
+            head_x1 = arrow_end_x - arrow_head_size * math.cos(head_angle1)
+            head_y1 = arrow_end_y - arrow_head_size * math.sin(head_angle1)
+            head_x2 = arrow_end_x - arrow_head_size * math.cos(head_angle2)
+            head_y2 = arrow_end_y - arrow_head_size * math.sin(head_angle2)
+            
+            # Draw arrow head lines
+            pygame.draw.line(self.screen, Colors.WHITE, 
+                           (arrow_end_x, arrow_end_y), (head_x1, head_y1), 
+                           max(1, int(2 * self.scale_factor)))
+            pygame.draw.line(self.screen, Colors.WHITE, 
+                           (arrow_end_x, arrow_end_y), (head_x2, head_y2), 
+                           max(1, int(2 * self.scale_factor)))
     
+    def _draw_troop_path(self, troop: Troop, scaled_x: int, scaled_y: int):
+        """Draw path line from troops to their actual targets - không vẽ quá xa"""
+        import math
+        
+        target_x, target_y = troop.target_position
+        
+        # Kiểm tra khoảng cách - nếu quá xa thì không vẽ đường
+        distance_to_target = math.sqrt((target_x - troop.x)**2 + (target_y - troop.y)**2)
+        if distance_to_target > 300:  # Giới hạn khoảng cách vẽ đường
+            return
+        
+        # Scale target position
+        scaled_target_x = int(target_x * self.scale_factor)
+        scaled_target_y = int(target_y * self.scale_factor)
+        
+        # Path color based on troop owner
+        path_color = troop.get_color()
+        # Make path color more transparent and thinner
+        alpha_color = tuple(c // 4 for c in path_color)  # Làm mờ hơn
+        
+        # Only draw path if target is reasonable
+        self._draw_dashed_line(self.screen, alpha_color,
+                             (scaled_x, scaled_y),
+                             (scaled_target_x, scaled_target_y), 
+                             max(1, int(1 * self.scale_factor)), 
+                             max(8, int(15 * self.scale_factor)))  # Dash dài hơn
+
     def _draw_tower_connections(self):
         """
-        Draw connections từ selected tower đến các towers khác
+        Draw connections từ selected tower đến các towers khác with proper scaling
         """
         selected_tower = None
         for tower in self.towers:
@@ -316,10 +466,18 @@ class GameView(Observer):
                 else:
                     line_color = Colors.RED
                 
-                # Draw dashed line
+                # Scale positions for connections
+                start_x = int(selected_tower.x * self.scale_factor)
+                start_y = int(selected_tower.y * self.scale_factor)
+                end_x = int(tower.x * self.scale_factor)
+                end_y = int(tower.y * self.scale_factor)
+                scaled_width = max(1, int(2 * self.scale_factor))
+                scaled_dash = max(2, int(10 * self.scale_factor))
+                
+                # Draw dashed line with scaling
                 self._draw_dashed_line(self.screen, line_color,
-                                     (selected_tower.x, selected_tower.y),
-                                     (tower.x, tower.y), 2, 10)
+                                     (start_x, start_y),
+                                     (end_x, end_y), scaled_width, scaled_dash)
     
     def _draw_dashed_line(self, surface: pygame.Surface, color, start_pos, end_pos, 
                          width: int = 1, dash_length: int = 5):
@@ -377,19 +535,23 @@ class GameView(Observer):
         """Vẽ dialog khi hoàn thành level"""
         # Create dialog surface only once to prevent flickering
         if self._level_complete_surface is None:
+            # Get current screen dimensions
+            screen_width = self.screen.get_width()
+            screen_height = self.screen.get_height()
+            
             # Create a surface for the entire dialog
-            self._level_complete_surface = pygame.Surface((SCREEN_WIDTH, SCREEN_HEIGHT), pygame.SRCALPHA)
+            self._level_complete_surface = pygame.Surface((screen_width, screen_height), pygame.SRCALPHA)
             
             # Semi-transparent overlay
-            overlay = pygame.Surface((SCREEN_WIDTH, SCREEN_HEIGHT), pygame.SRCALPHA)
+            overlay = pygame.Surface((screen_width, screen_height), pygame.SRCALPHA)
             overlay.fill((0, 0, 0, 128))  # Black with 50% alpha
             self._level_complete_surface.blit(overlay, (0, 0))
             
             # Dialog box
             dialog_width = 400
             dialog_height = 200
-            dialog_x = (SCREEN_WIDTH - dialog_width) // 2
-            dialog_y = (SCREEN_HEIGHT - dialog_height) // 2
+            dialog_x = (screen_width - dialog_width) // 2
+            dialog_y = (screen_height - dialog_height) // 2
             
             dialog_rect = pygame.Rect(dialog_x, dialog_y, dialog_width, dialog_height)
             pygame.draw.rect(self._level_complete_surface, Colors.WHITE, dialog_rect)
