@@ -216,19 +216,14 @@ class Tower(GameObject, Clickable, Subject):
                 int(tower_image.get_width() * self._scale),
                 int(tower_image.get_height() * self._scale)
             )
-
             # Chỉ gọi scale một lần
             scaled_image = pygame.transform.smoothscale(tower_image, scaled_size)
-
             # Xoay
             rotated_image = pygame.transform.rotate(scaled_image, self._rotation)
-
             # Căn giữa lại đúng tọa độ gốc
             image_rect = rotated_image.get_rect(center=(int(self.x), int(self.y)))
-
             # Vẽ lên màn hình
             screen.blit(rotated_image, image_rect)
-
         else:
             # Fallback: vẽ bằng circle như cũ
             color = self.get_color()
@@ -238,13 +233,6 @@ class Tower(GameObject, Clickable, Subject):
             pygame.draw.circle(screen, Colors.BLACK, 
                              (int(self.x), int(self.y)), 
                              self.__radius, 2)
-        
-        # Vẽ selection highlight
-        if self._selected:
-            pygame.draw.circle(screen, Colors.WHITE, 
-                             (int(self.x), int(self.y)), 
-                             self.__radius + 5, 3)
-        
         # Vẽ số quân với font đẹp hơn
         self.__draw_troops_text(screen)
     
@@ -271,9 +259,12 @@ class Tower(GameObject, Clickable, Subject):
         """
         Implementation của Clickable interface
         Kiểm tra xem điểm có nằm trong tower không
+        Sử dụng hitbox lớn hơn để dễ click hơn
         """
         distance = math.sqrt((x - self.x)**2 + (y - self.y)**2)
-        return distance <= self.__radius
+        # Hitbox lớn hơn 50% so với visual radius để dễ click
+        click_radius = self.__radius * 1.5
+        return distance <= click_radius
     
     def on_click(self, pos: Tuple[float, float]) -> Optional['Tower']:
         """

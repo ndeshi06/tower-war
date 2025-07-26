@@ -37,6 +37,10 @@ class Troop(GameObject, Movable):
         # Validate input
         self.__validate_count(count)
         self.__validate_owner(owner)
+
+        # Animation state
+        self.is_dead = False
+        self.dead_time = None  # Thời điểm bắt đầu hiện dead animation
     
     def __validate_count(self, count: int):
         """Private method để validate troops count"""
@@ -104,9 +108,8 @@ class Troop(GameObject, Movable):
         Override abstract method từ GameObject
         Cập nhật vị trí troop
         """
-        if not self.active:
+        if not self.active or getattr(self, 'is_dead', False):
             return
-        
         # Di chuyển troop
         self.move(dt)
     
@@ -159,6 +162,8 @@ class Troop(GameObject, Movable):
         """
         Kiểm tra xem troop đã đến đích chưa với improved threshold để catch sớm hơn
         """
+        if getattr(self, 'is_dead', False):
+            return False
         distance_to_target = math.sqrt(
             (self.__target_x - self.x)**2 + (self.__target_y - self.y)**2
         )
@@ -240,20 +245,32 @@ class Troop(GameObject, Movable):
         """
         if self.__owner == other_troop.owner:
             return self, other_troop  # Cùng phe, không đánh nhau
-        
+
         my_count = self.__count
         other_count = other_troop.count
-        
+
         if my_count > other_count:
             # Tôi thắng
             self.__count = my_count - other_count
+            if hasattr(other_troop, 'is_dead'):
+                other_troop.is_dead = True
+                other_troop.dead_time = pygame.time.get_ticks()
             return self, None
         elif other_count > my_count:
             # Đối phương thắng
             other_troop._Troop__count = other_count - my_count  # Access private attribute
+            if hasattr(self, 'is_dead'):
+                self.is_dead = True
+                self.dead_time = pygame.time.get_ticks()
             return None, other_troop
         else:
             # Hòa nhau, cả hai bị tiêu diệt
+            if hasattr(self, 'is_dead'):
+                self.is_dead = True
+                self.dead_time = pygame.time.get_ticks()
+            if hasattr(other_troop, 'is_dead'):
+                other_troop.is_dead = True
+                other_troop.dead_time = pygame.time.get_ticks()
             return None, None
     
     def __str__(self) -> str:

@@ -33,8 +33,8 @@ class GameSettings:
     TOWER_MAX_TROOPS = 50 
     TOWER_GROWTH_RATE = 1
     TROOP_SPEED = 100
-    TROOP_RADIUS = 5
-    AI_ACTION_INTERVAL = 4000  # milliseconds - tăng lên để AI không quá thường xuyên
+    TROOP_RADIUS = 17
+    AI_ACTION_INTERVAL = 2500  # milliseconds - tăng tốc độ phản hồi của AI
     
     # Font sizes
     FONT_LARGE = 36

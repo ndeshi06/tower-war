@@ -510,39 +510,43 @@ class GameController(Subject, Observer):
     
     def _update_troops(self, dt: float):
         """Update troops và xử lý tower arrivals TRƯỚC combat để tránh troops bị destroy trước khi chạm tower"""
-        troops_to_remove = []
-        
         # Update all troops
         for troop in self._troops:
             troop.update(dt)
-        
-        # CRITICAL: Xử lý tower arrivals TRƯỚC combat để troops có cơ hội chạm tower
+
+        # Remove all dead troops immediately (before any arrival/combat logic)
+        removed_any = False
+        self._troops = [troop for troop in self._troops if not (getattr(troop, 'is_dead', False) and setattr(troop, 'dead_time', troop.dead_time or pygame.time.get_ticks()) is None and (removed_any := True))]
+        # The above line ensures dead_time is set if not already, and removes dead troops
+        if removed_any:
+            self.notify("troops_updated", {"troops": self._troops})
+
         # Group troops by target towers để xử lý simultaneous arrivals
         tower_arrivals = {}
         for i, troop in enumerate(self._troops):
-            # Check if troop reached target
             if troop.has_reached_target():
                 target_tower = self._find_target_tower(troop)
                 if target_tower:
                     if target_tower not in tower_arrivals:
                         tower_arrivals[target_tower] = []
                     tower_arrivals[target_tower].append((i, troop))
-        
+
         # Process each tower's arrivals
+        troops_to_remove = []
         for tower, arriving_troops in tower_arrivals.items():
             # Sort by owner to handle conflicts
             player_troops = [(i, t) for i, t in arriving_troops if t.owner == OwnerType.PLAYER]
             enemy_troops = [(i, t) for i, t in arriving_troops if t.owner == OwnerType.ENEMY]
             neutral_troops = [(i, t) for i, t in arriving_troops if t.owner == OwnerType.NEUTRAL]
-            
+
             # Calculate total strengths
             total_player_strength = sum(t.count for _, t in player_troops)
             total_enemy_strength = sum(t.count for _, t in enemy_troops)
             total_neutral_strength = sum(t.count for _, t in neutral_troops)
-            
+
             print(f"Tower at ({tower.x}, {tower.y}) - Owner: {tower.owner}, Troops: {tower.troops}")
             print(f"Arrivals - Player: {total_player_strength}, Enemy: {total_enemy_strength}, Neutral: {total_neutral_strength}")
-            
+
             # Handle conflicts between player and enemy troops first
             if total_player_strength > 0 and total_enemy_strength > 0:
                 print(f"Player vs Enemy conflict at tower")
@@ -581,7 +585,7 @@ class GameController(Subject, Observer):
                     for i, _ in player_troops:
                         if i not in troops_to_remove:
                             troops_to_remove.append(i)
-                
+
                 if total_enemy_strength > 0:
                     print(f"Enemy attacking tower with {total_enemy_strength} troops")
                     old_owner = tower.owner  # Lưu owner cũ trước khi attack
@@ -591,7 +595,7 @@ class GameController(Subject, Observer):
                     for i, _ in enemy_troops:
                         if i not in troops_to_remove:
                             troops_to_remove.append(i)
-                
+
                 if total_neutral_strength > 0:
                     print(f"Neutral attacking tower with {total_neutral_strength} troops")
                     old_owner = tower.owner  # Lưu owner cũ trước khi attack
@@ -601,12 +605,21 @@ class GameController(Subject, Observer):
                     for i, _ in neutral_troops:
                         if i not in troops_to_remove:
                             troops_to_remove.append(i)
-        
-        # Remove arrived troops BEFORE checking combat
+
+        # Remove arrived troops (and any dead troops again for safety)
+        removed_any = False
         for i in reversed(sorted(troops_to_remove)):
             if i < len(self._troops):
+                troop = self._troops[i]
+                if getattr(troop, 'is_dead', False):
+                    # Set dead_time if not set
+                    if getattr(troop, 'dead_time', None) is None:
+                        troop.dead_time = pygame.time.get_ticks()
+                    removed_any = True
                 del self._troops[i]
-        
+        if removed_any or troops_to_remove:
+            self.notify("troops_updated", {"troops": self._troops})
+
         # Sau khi xử lý tower arrivals, mới xử lý troop-to-troop combat
         self._handle_troop_combat()
     
@@ -618,31 +631,28 @@ class GameController(Subject, Observer):
         for i in range(len(self._troops)):
             if i in troops_to_remove or i in troops_in_combat:
                 continue
-                
             troop1 = self._troops[i]
-            
+            if getattr(troop1, 'is_dead', False):
+                continue  # Không combat nữa nếu đã chết
             for j in range(i + 1, len(self._troops)):
                 if j in troops_to_remove or j in troops_in_combat:
                     continue
-                    
                 troop2 = self._troops[j]
-                
+                if getattr(troop2, 'is_dead', False):
+                    continue
                 # Enhanced collision detection cho troops khác owner
                 if troop1.owner != troop2.owner:
                     # Kiểm tra distance trực tiếp
                     distance = ((troop1.x - troop2.x)**2 + (troop1.y - troop2.y)**2)**0.5
-                    collision_threshold = troop1.radius + troop2.radius + 15  # Buffer zone
-                    
+                    # Chỉ tính là chạm khi thực sự overlap (gần hơn cả chạm mép)
+                    collision_threshold = max(troop1.radius, troop2.radius)  # Chỉ overlap mới combat
                     if distance <= collision_threshold:
                         print(f"Combat detected: {troop1.owner} ({troop1.count}) at ({troop1.x:.1f},{troop1.y:.1f}) vs {troop2.owner} ({troop2.count}) at ({troop2.x:.1f},{troop2.y:.1f}) - distance: {distance:.1f}")
-                        
                         # Thực hiện combat
                         winner1, winner2 = troop1.combat_with(troop2)
-                        
                         # Mark cả 2 troops đã combat
                         troops_in_combat.add(i)
                         troops_in_combat.add(j)
-                        
                         # Xử lý kết quả combat
                         if winner1 is None:
                             print(f"Troop1 ({troop1.owner}) defeated")
@@ -650,19 +660,19 @@ class GameController(Subject, Observer):
                         if winner2 is None:
                             print(f"Troop2 ({troop2.owner}) defeated")
                             troops_to_remove.append(j)
-                        
                         # Play combat sound
                         self.notify("combat_occurred", {
                             "winner": winner1.owner if winner1 else (winner2.owner if winner2 else "draw"),
                             "position": (troop1.x, troop1.y)
                         })
-                        
                         # CRITICAL: Break sau combat để troop1 không combat với troops khác
                         break
-        
-        # Remove defeated troops
+        # Remove defeated troops khỏi logic (nhưng giữ lại để vẽ dead animation)
         for i in reversed(sorted(troops_to_remove)):
             if i < len(self._troops):
+                troop = self._troops[i]
+                if hasattr(troop, 'is_dead') and troop.is_dead:
+                    continue  # Giữ lại để vẽ dead animation
                 print(f"Removing defeated troop at index {i}")
                 del self._troops[i]
     
