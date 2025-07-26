@@ -16,7 +16,7 @@ class SoundManager:
             return
         
         pygame.mixer.init()  # Khởi tạo âm thanh
-        pygame.mixer.set_num_channels(16)  # Tăng số channel để hỗ trợ nhiều sound cùng lúc
+        pygame.mixer.set_num_channels(32)  # Tăng số channel để hỗ trợ nhiều sound cùng lúc
         self.sounds: Dict[str, pygame.mixer.Sound] = {}
         self.sounds_folder = os.path.join(os.path.dirname(__file__), '..', '..', 'sounds')
         
@@ -105,7 +105,7 @@ class SoundManager:
             sound.set_volume(final_volume)
             
             # Tìm channel trống hoặc tạo mới để không bị đè lên nhau
-            channel = pygame.mixer.find_channel()
+            channel = pygame.mixer.find_channel(True)
             if channel:
                 channel.play(sound)  # Bỏ maxtime để sound không bị cắt
             else:

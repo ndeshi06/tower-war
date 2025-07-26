@@ -56,6 +56,7 @@ class GameController(Subject, Observer):
         
         # Troop spawning system
         self._spawn_queue = []  # Queue of troops waiting to spawn
+        self.next_batch_time = 0     # Thời gian để spawn batch tiếp theo
         
         # Initialize game
         self._create_initial_towers()
