@@ -390,13 +390,14 @@ class GameView(Observer):
                 return 500
             return len(frames) * 100  # mỗi frame 100ms, giống draw()
 
-        self.dead_animations[:] = [anim for anim in self.dead_animations if now - anim.start_time < anim_duration(anim)]
-        for anim in self.dead_animations:
-            anim.draw(self.screen, now)
-        # Vẽ troop sống bình thường
+        # Vẽ troop sống bình thường trước
         for troop in self.troops:
             if troop.active:
                 self._draw_scaled_troop(troop)
+        # Sau đó vẽ dead animation lên trên cùng
+        self.dead_animations[:] = [anim for anim in self.dead_animations if now - anim.start_time < anim_duration(anim)]
+        for anim in self.dead_animations:
+            anim.draw(self.screen, now)
     
     def _draw_scaled_troop(self, troop: Troop):
         """Draw a single troop with animation (cat/dog), dog sẽ flip nếu chạy sang trái"""
