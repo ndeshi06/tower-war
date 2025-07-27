@@ -573,7 +573,16 @@ class TowerWarGame(Observer):
 
 def main():
     """Entry point"""
+        
     try:
+        pygame.init()
+        from src.utils.constants import SCREEN_WIDTH, SCREEN_HEIGHT
+        screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
+        pygame.display.set_caption("Tower War")
+
+        from src.views.intro_view import show_intro
+        show_intro(screen, max_duration=5000)  # Loading tối đa 5 giây
+
         game = TowerWarGame()
         game.run()
     except KeyboardInterrupt:
