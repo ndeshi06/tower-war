@@ -215,9 +215,9 @@ class Tower(GameObject, Clickable, Subject):
             return
             
         # Lấy image dựa trên owner và số quân
-        if self.__troops < 10:
+        if self.__troops < 5:
             image_name = f"tower_{self.__owner}_3"
-        elif self.__troops < 20:
+        elif self.__troops < 10:
             image_name = f"tower_{self.__owner}_2"
         else:
             image_name = f"tower_{self.__owner}"
