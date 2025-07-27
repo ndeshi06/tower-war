@@ -403,29 +403,42 @@ class GameView(Observer):
         scaled_x = int(troop.x * self.scale_factor)
         scaled_y = int(troop.y * self.scale_factor)
         size = (max(1, int(troop.radius * 2 * self.scale_factor)),) * 2
-        # Chọn animation theo owner và trạng thái
+        now = pygame.time.get_ticks()
         if hasattr(troop, 'is_dead') and troop.is_dead:
+            dead_time = getattr(troop, 'dead_time', None)
+            base_time = dead_time if dead_time is not None else now
+            elapsed = now - base_time
+            dust_size = tuple(int(s * 2) for s in size)
+            dust_frames = list(self.animation_manager.get_attack_animation(dust_size))
+            dust_frame_count = 9
+            dust_total = dust_frame_count * 100
             if troop.owner == 'player':
-                frames = self.animation_manager.get_player_troops_dead(size)
-                frame_count = len(frames)
-                frame_idx = int(pygame.time.get_ticks() / 100) % frame_count
-                frame = frames[frame_idx]
+                dead_frames = list(self.animation_manager.get_player_troops_dead(size))
             else:
-                frames = self.animation_manager.get_enemy_troops_dead(size)
-                frame_count = len(frames)
-                frame_idx = int(pygame.time.get_ticks() / 100) % frame_count
-                frame = frames[frame_idx]
+                dead_frames = list(self.animation_manager.get_enemy_troops_dead(size))
+            dead_frame_count = len(dead_frames)
+            # Nếu chưa hết dust thì chỉ vẽ dust
+            if elapsed < dust_total:
+                frame_idx = int(elapsed // 100)
+                if frame_idx >= dust_frame_count:
+                    frame_idx = dust_frame_count - 1
+                frame = dust_frames[frame_idx]
+            else:
+                dead_elapsed = elapsed - dust_total
+                if dead_frame_count == 0:
+                    return
+                frame_idx = int(dead_elapsed // 100) % dead_frame_count
+                frame = dead_frames[frame_idx]
         else:
             if troop.owner == 'player':
-                frames = self.animation_manager.get_player_troops_run(size)
-                frame_count = len(frames)
-                frame_idx = int(pygame.time.get_ticks() / 100) % frame_count
-                frame = frames[frame_idx]
+                frames = list(self.animation_manager.get_player_troops_run(size))
             else:
-                frames = self.animation_manager.get_enemy_troops_run(size)
-                frame_count = len(frames)
-                frame_idx = int(pygame.time.get_ticks() / 100) % frame_count
-                frame = frames[frame_idx]
+                frames = list(self.animation_manager.get_enemy_troops_run(size))
+            if not frames:
+                return
+            frame_count = len(frames)
+            frame_idx = int(now / 100) % frame_count
+            frame = frames[frame_idx]
         # Flip dog nếu di chuyển sang trái
         if troop.owner == 'enemy' and hasattr(troop, 'x') and hasattr(troop, 'target_position'):
             target_x, _ = troop.target_position

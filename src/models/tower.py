@@ -202,8 +202,6 @@ class Tower(GameObject, Clickable, Subject):
             elif abs(self._rotation) < 0.5:
                 self._rotation = 0
                 self._rotation_velocity = 0
-        
-        # Đã bỏ cập nhật đá bay
     
     def draw(self, screen: pygame.Surface):
         """
@@ -247,11 +245,6 @@ class Tower(GameObject, Clickable, Subject):
                              self.__radius, 2)
         # Vẽ số quân với font đẹp hơn
         self.__draw_troops_text(screen)
-
-        # Đã bỏ vẽ đá bay
-        
-    # Đã bỏ hàm vẽ đá bay
-
     
     def __draw_troops_text(self, screen: pygame.Surface):
         """Private method để vẽ text số quân - Encapsulation"""
