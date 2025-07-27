@@ -15,18 +15,33 @@ class MainMenu(UIView):
     
     def __init__(self):
         super().__init__(0, 0, 1024, 576)  # Use default size, will be scaled dynamically
-        
+
+        # Background (phải khởi tạo trước)
+        self.background = None
         # Image manager
         self.image_manager = ImageManager()
-    
+        self._load_background()
+
         # Menu buttons - will be recalculated dynamically
         self.start_button = None
         self.settings_button = None
         self.help_button = None
         self.quit_button = None
-        
+        self.continue_button = None  # Thêm thuộc tính này
+        self.new_game_button = None  # Thêm thuộc tính này
+
         # Mouse position for hover effects
         self.mouse_pos = (0, 0)
+
+        # Trạng thái có progression không
+        self.has_progression = self._check_progression()
+
+    def _check_progression(self):
+        """Kiểm tra có file save progression không"""
+        import os
+        from ..utils.progression_manager import ProgressionManager
+        pm = ProgressionManager()
+        return os.path.exists(pm.save_path)
         
         # Background
         self.background = None
@@ -61,13 +76,19 @@ class MainMenu(UIView):
         Handle menu button clicks
         Returns: action string hoặc None
         """
-        if self.start_button.collidepoint(pos):
-            return "start_game"
-        elif self.settings_button.collidepoint(pos):
+        # Chỉ cho click CONTINUE nếu có progression
+        if self.continue_button and self.continue_button.collidepoint(pos):
+            if self.has_progression:
+                return "continue_game"
+            else:
+                return None
+        elif self.new_game_button and self.new_game_button.collidepoint(pos):
+            return "new_game"
+        elif self.settings_button and self.settings_button.collidepoint(pos):
             return "settings"
-        elif self.help_button.collidepoint(pos):
+        elif self.help_button and self.help_button.collidepoint(pos):
             return "help"
-        elif self.quit_button.collidepoint(pos):
+        elif self.quit_button and self.quit_button.collidepoint(pos):
             return "quit"
         return None
     
@@ -76,12 +97,13 @@ class MainMenu(UIView):
         # Menu buttons - căn giữa chính xác và đẩy lên cao hơn để tránh footer
         button_width, button_height = 300, 60
         center_x = (screen_width - button_width) // 2
-        start_y = screen_height // 2 - 80  # Đẩy lên từ -20 về -80
-        
-        self.start_button = pygame.Rect(center_x, start_y, button_width, button_height)
-        self.settings_button = pygame.Rect(center_x, start_y + 80, button_width, button_height)
-        self.help_button = pygame.Rect(center_x, start_y + 160, button_width, button_height)
-        self.quit_button = pygame.Rect(center_x, start_y + 240, button_width, button_height)
+        start_y = screen_height // 2 - 150  # Đẩy lên cao hơn để đủ chỗ cho 5 nút
+
+        self.continue_button = pygame.Rect(center_x, start_y, button_width, button_height)
+        self.new_game_button = pygame.Rect(center_x, start_y + 80, button_width, button_height)
+        self.settings_button = pygame.Rect(center_x, start_y + 160, button_width, button_height)
+        self.help_button = pygame.Rect(center_x, start_y + 240, button_width, button_height)
+        self.quit_button = pygame.Rect(center_x, start_y + 320, button_width, button_height)
     
     def update_mouse_pos(self, pos: tuple):
         """Update mouse position cho hover effects"""
@@ -91,14 +113,17 @@ class MainMenu(UIView):
         """Vẽ main menu"""
         if not self.visible:
             return
-        
+
+        # Luôn cập nhật trạng thái progression trước khi vẽ
+        self.has_progression = self._check_progression()
+
         # Get current screen dimensions
         screen_width = screen.get_width()
         screen_height = screen.get_height()
-        
+
         # Recalculate button positions for current screen size
         self._recalculate_buttons(screen_width, screen_height)
-        
+
         # Draw background
         if self.background:
             # Scale background to fit screen
@@ -106,13 +131,13 @@ class MainMenu(UIView):
             screen.blit(scaled_bg, (0, 0))
         else:
             screen.fill(Colors.DARK_BLUE)
-        
+
         # Draw title
         self._draw_title(screen)
-        
+
         # Draw buttons
         self._draw_buttons(screen)
-        
+
         # Draw footer
         self._draw_footer(screen)
     
@@ -121,67 +146,58 @@ class MainMenu(UIView):
         screen_width = screen.get_width()
         
         title_font = self.get_font(72, bold=True)
-        subtitle_font = self.get_font(24)
-        
         # Main title
         title_text = "TOWER WAR"
         title_surface = title_font.render(title_text, True, Colors.WHITE)
         title_rect = title_surface.get_rect()
         title_pos = (screen_width//2 - title_rect.width//2, 60)
-        
         # Draw title with shadow
         self.draw_text_with_shadow(screen, title_text, title_pos, Colors.WHITE, title_font, 4)
-        
-        # Subtitle
-        subtitle_text = "Version 1.0"
-        subtitle_surface = subtitle_font.render(subtitle_text, True, Colors.LIGHT_BLUE)
-        subtitle_rect = subtitle_surface.get_rect()
-        subtitle_pos = (screen_width//2 - subtitle_rect.width//2, title_pos[1] + title_rect.height + 10)
-        
-        self.draw_text_with_shadow(screen, subtitle_text, subtitle_pos, Colors.LIGHT_BLUE, subtitle_font, 2)
     
     def _draw_buttons(self, screen: pygame.Surface):
-        """Vẽ menu buttons"""
+        """Vẽ menu buttons với Continue và New Game"""
         button_font = self.get_font(GameSettings.FONT_LARGE, bold=True)
-        
         buttons = [
-            (self.start_button, "START GAME", Colors.GREEN),
-            (self.settings_button, "SETTINGS", Colors.BLUE),
-            (self.help_button, "HELP", Colors.GRAY),
-            (self.quit_button, "QUIT", Colors.RED)
+            (self.continue_button, "CONTINUE", Colors.ORANGE, not self.has_progression),
+            (self.new_game_button, "NEW GAME", Colors.GREEN, False),
+            (self.settings_button, "SETTINGS", Colors.BLUE, False),
+            (self.help_button, "HELP", Colors.GRAY, False),
+            (self.quit_button, "QUIT", Colors.RED, False)
         ]
-        
-        for button_rect, text, base_color in buttons:
-            # Check hover
-            hover = button_rect.collidepoint(self.mouse_pos)
-            
-            # Draw button với hover effect
+        for button_rect, text, base_color, disabled in buttons:
+            hover = button_rect.collidepoint(self.mouse_pos) and not disabled
+            draw_color = Colors.LIGHT_GRAY if disabled else base_color
             self.draw_button(
                 screen, button_rect, text, button_font,
-                bg_color=base_color,
+                bg_color=draw_color,
                 text_color=Colors.WHITE,
                 border_color=Colors.BLACK,
                 hover=hover
             )
     
     def _draw_footer(self, screen: pygame.Surface):
-        """Vẽ footer với thông tin"""
+        """Vẽ footer với thông tin và version"""
         screen_width = screen.get_width()
         screen_height = screen.get_height()
         
         footer_font = self.get_font(GameSettings.FONT_SMALL)
+        version_font = self.get_font(24)
         
         footer_texts = [
             "Use mouse to play • F11 - Toggle Fullscreen", 
             "Developed by Group 6 - 24C06 HCMUS",
         ]
-        
         # Đặt footer ở cuối màn hình, tránh đè lên button
         footer_start_y = screen_height - 50
-        
         for i, text in enumerate(footer_texts):
             text_surface = footer_font.render(text, True, Colors.WHITE)
             text_rect = text_surface.get_rect()
             text_pos = (screen_width//2 - text_rect.width//2, footer_start_y + i * 20)
-            
             self.draw_text_with_shadow(screen, text, text_pos, Colors.WHITE, footer_font, 1)
+
+        # Vẽ version ở góc trái dưới
+        version_text = "Version 1.0"
+        version_surface = version_font.render(version_text, True, Colors.LIGHT_BLUE)
+        version_rect = version_surface.get_rect()
+        version_pos = (16, screen_height - version_rect.height - 10)
+        self.draw_text_with_shadow(screen, version_text, version_pos, Colors.LIGHT_BLUE, version_font, 2)

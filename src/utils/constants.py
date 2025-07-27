@@ -19,6 +19,7 @@ class Colors:
     WHITE = (255, 255, 255)
     BLACK = (0, 0, 0)
     GREEN = (0, 200, 0)       # Màu xanh lá đậm
+    ORANGE = (255, 165, 0)    # Màu cam cho nút CONTINUE
     LIGHT_GREEN = (144, 238, 144)  # Màu xanh lá nhạt
     LIGHT_RED = (255, 182, 193)    # Màu đỏ nhạt
     LIGHT_BLUE = (173, 216, 230)

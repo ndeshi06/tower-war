@@ -62,6 +62,10 @@ class MenuManager:
             if action == "start_game":
                 self.current_state = MenuState.GAME
                 return "start_game"
+            elif action == "continue_game":
+                return "continue_game"
+            elif action == "new_game":
+                return "new_game"
             elif action == "settings":
                 self.current_state = MenuState.SETTINGS
                 self._update_visibility()

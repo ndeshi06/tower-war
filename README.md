@@ -160,6 +160,15 @@ python main.py
 - **Fullscreen Support**: F11 toggle với aspect ratio preservation
 - **Responsive Design**: Hoạt động trên mọi resolution
 
+### Progression & Save System
+
+- **Tính năng Save/Progression:**
+  - Game sẽ tự động lưu tiến trình của bạn sau mỗi level hoặc khi thoát game.
+  - Khi mở lại game, bạn có thể tiếp tục từ level cuối cùng đã hoàn thành bằng nút **CONTINUE** trên main menu.
+  - Tiến trình được lưu trong file `progression_save.json` (file này sẽ tự động bị bỏ qua khi commit lên git).
+  - Nếu muốn chơi lại từ đầu, chọn **NEW GAME** để reset tiến trình về level 1.
+  - Hệ thống save giúp bạn không bị mất tiến độ khi thoát game hoặc tắt máy.
+
 ## Chiến thuật
 
 1. **Phòng thủ**: Giữ những tower quan trọng có nhiều quân

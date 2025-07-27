@@ -160,10 +160,12 @@ tmp/
 *.backup
 *~
 
+
 # Game saves and configs (if any)
 saves/
 config/
 settings.json
+progression_save.json
 
 # Performance profiling files
 *.prof
