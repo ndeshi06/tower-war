@@ -215,11 +215,11 @@ class AIController(Observer, Subject):
         
         # Adjust action interval based on difficulty
         intervals = {
-            'easy': 4000,    # 4 seconds
-            'medium': 3000,  # 3 seconds  
-            'hard': 2000     # 2 seconds
+            'easy': 3000,    # 3 seconds
+            'medium': 2000,  # 2 seconds
+            'hard': 1500     # 1.5 seconds
         }
-        self.action_interval = intervals.get(difficulty, 3000)
+        self.action_interval = intervals.get(difficulty, 2000)
     
     def update_observer(self, event_type: str, data: dict):
         """

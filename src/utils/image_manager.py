@@ -98,7 +98,8 @@ class ImageManager:
             'background_game': 'background_game.png',
             'tower_player': 'tower_player.png',
             'tower_enemy': 'tower_enemy.png', 
-            'tower_neutral': 'tower_neutral.png'
+            'tower_neutral': 'tower_neutral.png',
+            'flying_rock': 'flying_rock.png'
         }
         
         filename = name_to_file.get(image_name)

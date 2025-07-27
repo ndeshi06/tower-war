@@ -3,6 +3,7 @@ Tower model - thể hiện tính Inheritance, Encapsulation, Polymorphism
 """
 import pygame
 import math
+import random
 from typing import Optional, Tuple
 from ..models.base import GameObject, Clickable, Subject
 from ..utils.constants import Colors, GameSettings, OwnerType
@@ -21,6 +22,8 @@ class Tower(GameObject, Clickable, Subject):
         # Load image manager
         from ..utils.image_manager import ImageManager
         self.image_manager = ImageManager()
+        self._flying_rocks = []  # Danh sách hiệu ứng đá đang bay
+        self.rock_image = self.image_manager.get_image('flying_rock')
 
         #Load sound manager
         from ..utils.sound_manager import SoundManager
@@ -75,6 +78,22 @@ class Tower(GameObject, Clickable, Subject):
         self._scale_velocity = -0.02
         self._rotation = 5
         self._rotation_velocity = -0.5
+    
+    def _spawn_rocks(self, count: int):
+        for _ in range(5):  # Giới hạn số đá bay
+            angle = random.uniform(0, 2 * math.pi)
+            speed = random.uniform(2.0, 4.0)
+            dx = math.cos(angle) * speed
+            dy = math.sin(angle) * speed
+            rock = {
+                "x": self.x,
+                "y": self.y,
+                "dx": dx,
+                "dy": dy,
+                "time_left": 2000,
+                "image": self.rock_image,
+            }
+            self._flying_rocks.append(rock)
 
     # Sound manager
 
@@ -198,12 +217,22 @@ class Tower(GameObject, Clickable, Subject):
             elif abs(self._rotation) < 0.5:
                 self._rotation = 0
                 self._rotation_velocity = 0
+        
+        # Cập nhật đá bay
+        for rock in self._flying_rocks:
+            rock["x"] += rock["dx"]
+            rock["y"] += rock["dy"]
+            rock["time_left"] -= dt * 1000  # dt là giây, convert sang ms
+
+        # Xóa đá đã hết thời gian
+        self._flying_rocks = [r for r in self._flying_rocks if r["time_left"] > 0]
     
     def draw(self, screen: pygame.Surface):
         """
         Override abstract method từ GameObject
         Vẽ tower lên screen với image nếu có
         """
+
         if not self.active:
             return
             
@@ -216,19 +245,14 @@ class Tower(GameObject, Clickable, Subject):
                 int(tower_image.get_width() * self._scale),
                 int(tower_image.get_height() * self._scale)
             )
-
             # Chỉ gọi scale một lần
             scaled_image = pygame.transform.smoothscale(tower_image, scaled_size)
-
             # Xoay
             rotated_image = pygame.transform.rotate(scaled_image, self._rotation)
-
             # Căn giữa lại đúng tọa độ gốc
             image_rect = rotated_image.get_rect(center=(int(self.x), int(self.y)))
-
             # Vẽ lên màn hình
             screen.blit(rotated_image, image_rect)
-
         else:
             # Fallback: vẽ bằng circle như cũ
             color = self.get_color()
@@ -238,15 +262,20 @@ class Tower(GameObject, Clickable, Subject):
             pygame.draw.circle(screen, Colors.BLACK, 
                              (int(self.x), int(self.y)), 
                              self.__radius, 2)
-        
-        # Vẽ selection highlight
-        if self._selected:
-            pygame.draw.circle(screen, Colors.WHITE, 
-                             (int(self.x), int(self.y)), 
-                             self.__radius + 5, 3)
-        
         # Vẽ số quân với font đẹp hơn
         self.__draw_troops_text(screen)
+
+        self.__draw_flying_rocks(screen)
+        
+    def __draw_flying_rocks(self, screen: pygame.Surface):
+        print("Rock count:", len(self._flying_rocks))
+        for rock in self._flying_rocks:
+            if rock["image"]:
+                rect = rock["image"].get_rect(center=(int(rock["x"]), int(rock["y"])))
+                screen.blit(rock["image"], rect)
+            else:
+                pygame.draw.circle(screen, (255, 0, 0), (int(rock["x"]), int(rock["y"])), 5)
+
     
     def __draw_troops_text(self, screen: pygame.Surface):
         """Private method để vẽ text số quân - Encapsulation"""
@@ -271,9 +300,12 @@ class Tower(GameObject, Clickable, Subject):
         """
         Implementation của Clickable interface
         Kiểm tra xem điểm có nằm trong tower không
+        Sử dụng hitbox lớn hơn để dễ click hơn
         """
         distance = math.sqrt((x - self.x)**2 + (y - self.y)**2)
-        return distance <= self.__radius
+        # Hitbox lớn hơn 50% so với visual radius để dễ click
+        click_radius = self.__radius * 1.5
+        return distance <= click_radius
     
     def on_click(self, pos: Tuple[float, float]) -> Optional['Tower']:
         """
@@ -323,6 +355,10 @@ class Tower(GameObject, Clickable, Subject):
         else:
             # Khác phe, giảm quân
             self.sound_manager.play("troop_remove")
+
+            # Tạo đá bay (số lượng tùy vào số quân tấn công)
+            self._spawn_rocks(attacking_troops)
+
             if attacking_troops >= self.__troops:
                 # Tower bị chiếm
                 remaining_troops = attacking_troops - self.__troops
@@ -338,8 +374,6 @@ class Tower(GameObject, Clickable, Subject):
                 self.troops = self.__troops - attacking_troops
                 return False
 
-        
-    
     def distance_to(self, other: 'Tower') -> float:
         """Tính khoảng cách đến tower khác"""
         return math.sqrt((self.x - other.x)**2 + (self.y - other.y)**2)

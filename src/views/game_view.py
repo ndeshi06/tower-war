@@ -3,6 +3,7 @@ Game View - Main rendering class
 Thể hiện MVC Pattern và Observer Pattern
 """
 import pygame
+import os
 from typing import List
 from ..models.base import Observer
 from ..models.tower import Tower
@@ -11,6 +12,24 @@ from ..views.ui_view import GameHUD, GameOverScreen, PauseMenu
 from ..utils.constants import Colors, SCREEN_WIDTH, SCREEN_HEIGHT, GameState, GameSettings
 
 class GameView(Observer):
+    class DeadTroopAnim:
+        def __init__(self, x, y, owner, size, start_time, animation_manager):
+            self.x = x
+            self.y = y
+            self.owner = owner
+            self.size = size
+            self.start_time = start_time
+            self.animation_manager = animation_manager
+        def draw(self, screen, now):
+            if self.owner == 'player':
+                frames = self.animation_manager.get_cat_dead(self.size)
+            else:
+                frames = self.animation_manager.get_dog_dead(self.size)
+            frame_count = len(frames)
+            frame_idx = int((now - self.start_time) / 100) % frame_count
+            frame = frames[frame_idx]
+            rect = frame.get_rect(center=(int(self.x), int(self.y)))
+            screen.blit(frame, rect)
     """
     Main game view class - responsible for rendering all game objects
     Thể hiện Observer Pattern - quan sát game state changes
@@ -22,7 +41,9 @@ class GameView(Observer):
         
         # Load background image
         from ..utils.image_manager import ImageManager
+        from ..utils.animation_manager import AnimationManager
         self.image_manager = ImageManager()
+        self.animation_manager = AnimationManager(os.path.join(os.path.dirname(__file__), '..', '..', 'animations'))
         self.background_image = self.image_manager.get_image("background_game")
         
         # Scaling factor for consistent rendering
@@ -37,6 +58,7 @@ class GameView(Observer):
         self.game_state = GameState.PLAYING
         self.towers: List[Tower] = []
         self.troops: List[Troop] = []
+        self.dead_animations = []
         
         # Visual effects
         self.selection_pulse_time = 0
@@ -63,7 +85,32 @@ class GameView(Observer):
             self.towers = data.get('towers', [])
         
         elif event_type == "troops_updated":
-            self.troops = data.get('troops', [])
+            # Cách đơn giản và chắc chắn: mỗi lần troop bị remove và là dead thì tạo anim mới
+            old_troops = getattr(self, '_last_troops', [])
+            new_troops = data.get('troops', [])
+            self.troops = new_troops
+            now = pygame.time.get_ticks()
+            # Xoá dead animation đã hết thời gian
+            def anim_duration(anim):
+                if anim.owner == 'player':
+                    frames = anim.animation_manager.get_cat_dead(anim.size)
+                else:
+                    frames = anim.animation_manager.get_dog_dead(anim.size)
+                if not frames or len(frames) == 0:
+                    return 500
+                return len(frames) * 100
+            self.dead_animations[:] = [anim for anim in self.dead_animations if now - anim.start_time < anim_duration(anim)]
+            # Tạo anim cho troop vừa bị remove và là dead
+            old_dead = [t for t in old_troops if getattr(t, 'is_dead', False) and getattr(t, 'dead_time', None) is not None]
+            new_ids = set(id(t) for t in new_troops)
+            for troop in old_dead:
+                if id(troop) not in new_ids:
+                    size = (max(1, int(troop.radius * 2 * self.scale_factor)),) * 2
+                    # Sử dụng troop.dead_time làm start_time để đảm bảo anim hết hạn đúng lúc
+                    start_time = getattr(troop, 'dead_time', now)
+                    anim = self.DeadTroopAnim(troop.x * self.scale_factor, troop.y * self.scale_factor, troop.owner, size, start_time, self.animation_manager)
+                    self.dead_animations.append(anim)
+            self._last_troops = list(new_troops)
         
         elif event_type == "game_over":
             self.game_state = GameState.GAME_OVER  
@@ -250,10 +297,7 @@ class GameView(Observer):
         for tower in self.towers:
             if tower.active:
                 self._draw_scaled_tower(tower)
-                
-                # Draw additional effects for selected tower
-                if tower.selected:
-                    self._draw_selection_effect(tower)
+                # Đã tắt hiệu ứng selection mờ khi chọn tower
     
     def _draw_scaled_tower(self, tower: Tower):
         """Draw a single tower with scaling"""
@@ -348,20 +392,53 @@ class GameView(Observer):
     
     def _draw_troops(self):
         """Draw all troops with proper scaling - simplified without paths"""
+        now = pygame.time.get_ticks()
+        # Luôn xoá dead animation đã hết thời gian ở đây (dù không có update_observer)
+        def anim_duration(anim):
+            if anim.owner == 'player':
+                frames = anim.animation_manager.get_cat_dead(anim.size)
+            else:
+                frames = anim.animation_manager.get_dog_dead(anim.size)
+            # Nếu frames rỗng, fallback 500ms để không bị giữ vĩnh viễn
+            if not frames or len(frames) == 0:
+                return 500
+            return len(frames) * 100  # mỗi frame 100ms, giống draw()
+
+        self.dead_animations[:] = [anim for anim in self.dead_animations if now - anim.start_time < anim_duration(anim)]
+        for anim in self.dead_animations:
+            anim.draw(self.screen, now)
+        # Vẽ troop sống bình thường
         for troop in self.troops:
             if troop.active:
                 self._draw_scaled_troop(troop)
     
     def _draw_scaled_troop(self, troop: Troop):
-        """Draw a single troop with scaling"""
+        """Draw a single troop with animation (cat/dog), dog sẽ flip nếu chạy sang trái"""
         scaled_x = int(troop.x * self.scale_factor)
         scaled_y = int(troop.y * self.scale_factor)
-        scaled_radius = max(1, int(troop.radius * self.scale_factor))
-        
-        # Draw troop circle with scaled dimensions
-        color = troop.get_color()
-        pygame.draw.circle(self.screen, color, (scaled_x, scaled_y), scaled_radius)
-        pygame.draw.circle(self.screen, Colors.BLACK, (scaled_x, scaled_y), scaled_radius, max(1, int(self.scale_factor)))
+        size = (max(1, int(troop.radius * 2 * self.scale_factor)),) * 2
+        # Chọn animation theo owner và trạng thái
+        if hasattr(troop, 'is_dead') and troop.is_dead:
+            if troop.owner == 'player':
+                frames = self.animation_manager.get_cat_dead(size)
+            else:
+                frames = self.animation_manager.get_dog_dead(size)
+        else:
+            if troop.owner == 'player':
+                frames = self.animation_manager.get_cat_run(size)
+            else:
+                frames = self.animation_manager.get_dog_run(size)
+        # Xác định frame hiện tại dựa trên thời gian
+        frame_count = len(frames)
+        frame_idx = int(pygame.time.get_ticks() / 100) % frame_count
+        frame = frames[frame_idx]
+        # Flip dog nếu di chuyển sang trái
+        if troop.owner == 'enemy' and hasattr(troop, 'x') and hasattr(troop, 'target_position'):
+            target_x, _ = troop.target_position
+            if target_x < troop.x:
+                frame = pygame.transform.flip(frame, True, False)
+        rect = frame.get_rect(center=(scaled_x, scaled_y))
+        self.screen.blit(frame, rect)
     
     def _draw_troop_direction_arrow(self, troop: Troop, scaled_x: int, scaled_y: int, scaled_radius: int):
         """Draw direction arrow on troop"""
