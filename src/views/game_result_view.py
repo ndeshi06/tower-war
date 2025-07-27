@@ -37,12 +37,12 @@ class GameResultView:
         self.buttons.clear()
         button_width = 200
         button_height = 60
-        spacing = 30
+        spacing = 20
         
         if has_next_level:
             # Next Level button
             x = screen_width // 2 - button_width // 2
-            y = screen_height // 2 + 50
+            y = screen_height // 2 - 10
             next_level_text = f"Level {current_level + 1}"
             try:
                 next_level_text = f"Level {current_level + 1}"
@@ -65,7 +65,7 @@ class GameResultView:
         else:
             # All levels complete - only main menu
             x = screen_width // 2 - button_width // 2
-            y = screen_height // 2 + 50
+            y = screen_height // 2 - 10
             self.buttons["main_menu"] = {
                 "rect": pygame.Rect(x, y, button_width, button_height),
                 "text": "Main Menu",
@@ -77,11 +77,11 @@ class GameResultView:
         self.buttons.clear()
         button_width = 200
         button_height = 60
-        spacing = 30
+        spacing = 20
         
         # Play Again button
         x = screen_width // 2 - button_width // 2
-        y = screen_height // 2 + 50
+        y = screen_height // 2 - 10
         self.buttons["play_again"] = {
             "rect": pygame.Rect(x, y, button_width, button_height),
             "text": "Play Again",
