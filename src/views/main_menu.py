@@ -133,7 +133,7 @@ class MainMenu(UIView):
         self.draw_text_with_shadow(screen, title_text, title_pos, Colors.WHITE, title_font, 4)
         
         # Subtitle
-        subtitle_text = "Classic Edition"
+        subtitle_text = "Version 1.0"
         subtitle_surface = subtitle_font.render(subtitle_text, True, Colors.LIGHT_BLUE)
         subtitle_rect = subtitle_surface.get_rect()
         subtitle_pos = (screen_width//2 - subtitle_rect.width//2, title_pos[1] + title_rect.height + 10)
@@ -173,7 +173,7 @@ class MainMenu(UIView):
         
         footer_texts = [
             "Use mouse to play • F11 - Toggle Fullscreen", 
-            "Developed by Group 6 - OOP"
+            "Developed by Group 6 - 24C06 HCMUS",
         ]
         
         # Đặt footer ở cuối màn hình, tránh đè lên button

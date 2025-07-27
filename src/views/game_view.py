@@ -22,9 +22,9 @@ class GameView(Observer):
             self.animation_manager = animation_manager
         def draw(self, screen, now):
             if self.owner == 'player':
-                frames = self.animation_manager.get_cat_dead(self.size)
+                frames = self.animation_manager.get_player_troops_dead(self.size)
             else:
-                frames = self.animation_manager.get_dog_dead(self.size)
+                frames = self.animation_manager.get_enemy_troops_dead(self.size)
             frame_count = len(frames)
             frame_idx = int((now - self.start_time) / 100) % frame_count
             frame = frames[frame_idx]
@@ -93,9 +93,9 @@ class GameView(Observer):
             # Xoá dead animation đã hết thời gian
             def anim_duration(anim):
                 if anim.owner == 'player':
-                    frames = anim.animation_manager.get_cat_dead(anim.size)
+                    frames = anim.animation_manager.get_player_troops_dead(anim.size)
                 else:
-                    frames = anim.animation_manager.get_dog_dead(anim.size)
+                    frames = anim.animation_manager.get_enemy_troops_dead(anim.size)
                 if not frames or len(frames) == 0:
                     return 500
                 return len(frames) * 100
@@ -300,42 +300,28 @@ class GameView(Observer):
                 # Đã tắt hiệu ứng selection mờ khi chọn tower
     
     def _draw_scaled_tower(self, tower: Tower):
-        """Draw a single tower with scaling"""
-        # Calculate scaled position
-        scaled_x = int(tower.x * self.scale_factor)
-        scaled_y = int(tower.y * self.scale_factor)
-        scaled_radius = int(tower.radius * self.scale_factor)
-        
-        # Get tower image based on owner
-        image_name = f"tower_{tower.owner}"
-        tower_image = tower.image_manager.get_image(image_name)
-        
-        if tower_image:
-            # Calculate scaled size
-            original_width = tower_image.get_width()
-            original_height = tower_image.get_height()
-            scaled_width = int(original_width * self.scale_factor * tower._scale)
-            scaled_height = int(original_height * self.scale_factor * tower._scale)
-            
-            # Scale and rotate image
-            scaled_image = pygame.transform.smoothscale(tower_image, (scaled_width, scaled_height))
-            rotated_image = pygame.transform.rotate(scaled_image, tower._rotation)
-            
-            # Center the image on scaled position
-            image_rect = rotated_image.get_rect(center=(scaled_x, scaled_y))
-            self.screen.blit(rotated_image, image_rect)
-        else:
-            # Fallback: draw circle with scaled dimensions
-            color = tower.get_color()
-            pygame.draw.circle(self.screen, color, (scaled_x, scaled_y), scaled_radius)
-            pygame.draw.circle(self.screen, Colors.BLACK, (scaled_x, scaled_y), scaled_radius, 2)
-        
-        # Draw selection highlight
+        """Draw a single tower with scaling, including flying rock effect"""
+        # Tạm thời scale lại surface để vẽ tower đúng vị trí và hiệu ứng
+        # Tạo surface tạm để vẽ tower ở scale 1.0, sau đó scale/blit lên màn hình chính
+        # Nhưng để đơn giản, ta sẽ vẽ trực tiếp lên màn hình với scale hiện tại
+        # Lưu lại các thuộc tính gốc
+        orig_x, orig_y = tower.x, tower.y
+        orig_radius = tower.radius
+        orig_scale = getattr(tower, '_scale', 1.0)
+        # Scale các thuộc tính
+        tower.x = tower.x * self.scale_factor
+        tower.y = tower.y * self.scale_factor
+        tower._scale = tower._scale * self.scale_factor
+        # Vẽ tower (bao gồm flying rock)
+        tower.draw(self.screen)
+        # Vẽ selection highlight nếu cần
         if tower.selected:
-            pygame.draw.circle(self.screen, Colors.WHITE, (scaled_x, scaled_y), scaled_radius + 5, 3)
-        
-        # Draw troops text with scaling
-        self._draw_scaled_troops_text(tower, scaled_x, scaled_y, scaled_radius)
+            pygame.draw.circle(self.screen, Colors.WHITE, (int(tower.x), int(tower.y)), int(tower.radius * tower._scale) + 5, 3)
+        # Vẽ số quân với scale phù hợp (nếu cần override)
+        # Khôi phục thuộc tính gốc
+        tower.x = orig_x
+        tower.y = orig_y
+        tower._scale = orig_scale
     
     def _draw_scaled_troops_text(self, tower: Tower, x: int, y: int, radius: int):
         """Draw troops text with proper scaling"""
@@ -396,9 +382,9 @@ class GameView(Observer):
         # Luôn xoá dead animation đã hết thời gian ở đây (dù không có update_observer)
         def anim_duration(anim):
             if anim.owner == 'player':
-                frames = anim.animation_manager.get_cat_dead(anim.size)
+                frames = anim.animation_manager.get_player_troops_dead(anim.size)
             else:
-                frames = anim.animation_manager.get_dog_dead(anim.size)
+                frames = anim.animation_manager.get_enemy_troops_dead(anim.size)
             # Nếu frames rỗng, fallback 500ms để không bị giữ vĩnh viễn
             if not frames or len(frames) == 0:
                 return 500
@@ -420,18 +406,26 @@ class GameView(Observer):
         # Chọn animation theo owner và trạng thái
         if hasattr(troop, 'is_dead') and troop.is_dead:
             if troop.owner == 'player':
-                frames = self.animation_manager.get_cat_dead(size)
+                frames = self.animation_manager.get_player_troops_dead(size)
+                frame_count = len(frames)
+                frame_idx = int(pygame.time.get_ticks() / 100) % frame_count
+                frame = frames[frame_idx]
             else:
-                frames = self.animation_manager.get_dog_dead(size)
+                frames = self.animation_manager.get_enemy_troops_dead(size)
+                frame_count = len(frames)
+                frame_idx = int(pygame.time.get_ticks() / 100) % frame_count
+                frame = frames[frame_idx]
         else:
             if troop.owner == 'player':
-                frames = self.animation_manager.get_cat_run(size)
+                frames = self.animation_manager.get_player_troops_run(size)
+                frame_count = len(frames)
+                frame_idx = int(pygame.time.get_ticks() / 100) % frame_count
+                frame = frames[frame_idx]
             else:
-                frames = self.animation_manager.get_dog_run(size)
-        # Xác định frame hiện tại dựa trên thời gian
-        frame_count = len(frames)
-        frame_idx = int(pygame.time.get_ticks() / 100) % frame_count
-        frame = frames[frame_idx]
+                frames = self.animation_manager.get_enemy_troops_run(size)
+                frame_count = len(frames)
+                frame_idx = int(pygame.time.get_ticks() / 100) % frame_count
+                frame = frames[frame_idx]
         # Flip dog nếu di chuyển sang trái
         if troop.owner == 'enemy' and hasattr(troop, 'x') and hasattr(troop, 'target_position'):
             target_x, _ = troop.target_position

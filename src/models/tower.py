@@ -22,8 +22,8 @@ class Tower(GameObject, Clickable, Subject):
         # Load image manager
         from ..utils.image_manager import ImageManager
         self.image_manager = ImageManager()
-        self._flying_rocks = []  # Danh sách hiệu ứng đá đang bay
-        self.rock_image = self.image_manager.get_image('flying_rock')
+        # self._flying_rocks = []  # Đã bỏ hiệu ứng đá bay
+        # self.rock_image = self.image_manager.get_image('flying_rock')
 
         #Load sound manager
         from ..utils.sound_manager import SoundManager
@@ -79,21 +79,6 @@ class Tower(GameObject, Clickable, Subject):
         self._rotation = 5
         self._rotation_velocity = -0.5
     
-    def _spawn_rocks(self, count: int):
-        for _ in range(5):  # Giới hạn số đá bay
-            angle = random.uniform(0, 2 * math.pi)
-            speed = random.uniform(2.0, 4.0)
-            dx = math.cos(angle) * speed
-            dy = math.sin(angle) * speed
-            rock = {
-                "x": self.x,
-                "y": self.y,
-                "dx": dx,
-                "dy": dy,
-                "time_left": 2000,
-                "image": self.rock_image,
-            }
-            self._flying_rocks.append(rock)
 
     # Sound manager
 
@@ -218,14 +203,7 @@ class Tower(GameObject, Clickable, Subject):
                 self._rotation = 0
                 self._rotation_velocity = 0
         
-        # Cập nhật đá bay
-        for rock in self._flying_rocks:
-            rock["x"] += rock["dx"]
-            rock["y"] += rock["dy"]
-            rock["time_left"] -= dt * 1000  # dt là giây, convert sang ms
-
-        # Xóa đá đã hết thời gian
-        self._flying_rocks = [r for r in self._flying_rocks if r["time_left"] > 0]
+        # Đã bỏ cập nhật đá bay
     
     def draw(self, screen: pygame.Surface):
         """
@@ -236,8 +214,13 @@ class Tower(GameObject, Clickable, Subject):
         if not self.active:
             return
             
-        # Lấy image dựa trên owner
-        image_name = f"tower_{self.__owner}"
+        # Lấy image dựa trên owner và số quân
+        if self.__troops < 10:
+            image_name = f"tower_{self.__owner}_3"
+        elif self.__troops < 20:
+            image_name = f"tower_{self.__owner}_2"
+        else:
+            image_name = f"tower_{self.__owner}"
         tower_image = self.image_manager.get_image(image_name)
         
         if tower_image:
@@ -265,16 +248,9 @@ class Tower(GameObject, Clickable, Subject):
         # Vẽ số quân với font đẹp hơn
         self.__draw_troops_text(screen)
 
-        self.__draw_flying_rocks(screen)
+        # Đã bỏ vẽ đá bay
         
-    def __draw_flying_rocks(self, screen: pygame.Surface):
-        print("Rock count:", len(self._flying_rocks))
-        for rock in self._flying_rocks:
-            if rock["image"]:
-                rect = rock["image"].get_rect(center=(int(rock["x"]), int(rock["y"])))
-                screen.blit(rock["image"], rect)
-            else:
-                pygame.draw.circle(screen, (255, 0, 0), (int(rock["x"]), int(rock["y"])), 5)
+    # Đã bỏ hàm vẽ đá bay
 
     
     def __draw_troops_text(self, screen: pygame.Surface):
@@ -356,8 +332,7 @@ class Tower(GameObject, Clickable, Subject):
             # Khác phe, giảm quân
             self.sound_manager.play("troop_remove")
 
-            # Tạo đá bay (số lượng tùy vào số quân tấn công)
-            self._spawn_rocks(attacking_troops)
+            # Bỏ tạo đá bay khi bị tấn công
 
             if attacking_troops >= self.__troops:
                 # Tower bị chiếm

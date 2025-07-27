@@ -150,10 +150,6 @@ class LevelSelectView:
         for button in self.level_buttons:
             self._draw_level_button(screen, button)
         
-        # Progress info (hiển thị trạng thái mở khóa)
-        if self.level_manager:
-            self._draw_unlock_info(screen, screen_width, screen_height)
-        
         # Back button
         self._draw_back_button(screen)
     
@@ -215,29 +211,3 @@ class LevelSelectView:
         text = self.font_button.render("← Menu", True, Colors.BLACK)
         text_rect = text.get_rect(center=self.back_button.center)
         screen.blit(text, text_rect)
-    
-    def _draw_unlock_info(self, screen, screen_width, screen_height):
-        """Vẽ thông tin về trạng thái mở khóa"""
-        if not self.level_manager:
-            return
-            
-        # Vị trí info ở giữa màn hình, dưới các buttons
-        info_y = screen_height - 180
-        
-        # Completed levels
-        completed_count = len(self.level_manager.levels_completed)
-        total_levels = self.level_manager.max_level
-        
-        progress_text = f"Progress: {completed_count}/{total_levels} levels completed"
-        progress_surface = self.font_desc.render(progress_text, True, Colors.DARK_BLUE)
-        progress_rect = progress_surface.get_rect(center=(screen_width // 2, info_y))
-        screen.blit(progress_surface, progress_rect)
-        
-        # Unlock requirement cho level tiếp theo
-        for level in range(2, total_levels + 1):
-            if not self.level_manager.is_level_unlocked(level):
-                requirement_text = f"Complete Level {level - 1} to unlock Level {level}"
-                requirement_surface = self.font_desc.render(requirement_text, True, Colors.RED)
-                requirement_rect = requirement_surface.get_rect(center=(screen_width // 2, info_y + 25))
-                screen.blit(requirement_surface, requirement_rect)
-                break  # Chỉ hiển thị requirement cho level tiếp theo gần nhất

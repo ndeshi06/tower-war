@@ -339,9 +339,9 @@ class GameController(Subject, Observer):
         
         # Tạo spawn queue entries với timing không conflicts
         for i in range(count):
-            # Fixed delay 120ms giữa mỗi troop để spacing rõ ràng hơn
-            spawn_delay = i * 120  # 120ms = 0.12 giây delay để spacing rõ ràng
-            
+            # Fixed delay 200ms giữa mỗi troop để spacing rõ ràng hơn
+            spawn_delay = i * 200  # 200ms = 0.2 giây delay để spacing rõ ràng
+
             spawn_entry = {
                 'x': start_x,  # Spawn từ tower position
                 'y': start_y,  # Spawn từ tower position

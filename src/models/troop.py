@@ -151,7 +151,7 @@ class Troop(GameObject, Movable):
         # Apply movement với safety check
         new_x = self.x + direction_x * movement_step
         new_y = self.y + direction_y * movement_step
-        
+
         # Double-check: không được vượt quá target
         new_distance = math.sqrt((self.__target_x - new_x)**2 + (self.__target_y - new_y)**2)
         if new_distance <= current_distance:  # Chỉ move nếu tiến gần hơn

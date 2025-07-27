@@ -21,12 +21,11 @@ class AnimationManager:
         self.cache[key] = frames
         return frames
 
-    def get_cat_run(self, size=None):
-        return self.load_animation('cat', 'Run', 2, size)
-    def get_cat_dead(self, size=None):
-        return self.load_animation('cat', 'Dead', 5, size)
-    def get_dog_run(self, size=None):
-        return self.load_animation('dog', 'Run', 2, size)
-    def get_dog_dead(self, size=None):
-        return self.load_animation('dog', 'Dead', 5, size)
-
+    def get_player_troops_run(self, size=None):
+        return self.load_animation('player_troops', 'Run', 2, size)
+    def get_player_troops_dead(self, size=None):
+        return self.load_animation('player_troops', 'Dead', 10, size)
+    def get_enemy_troops_run(self, size=None):
+        return self.load_animation('enemy_troops', 'Run', 2, size)
+    def get_enemy_troops_dead(self, size=None):
+        return self.load_animation('enemy_troops', 'Dead', 10, size)
