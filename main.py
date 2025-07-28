@@ -9,6 +9,8 @@ from src.controllers.menu_manager import MenuManager
 from src.views.game_view import GameView
 from src.views.level_select_view import LevelSelectView
 from src.views.game_result_view import GameResultView
+from src.views.intro_view import show_intro
+from src.utils.transition import fade_in, fade_out
 from src.models.base import Observer
 from src.utils.constants import SCREEN_WIDTH, SCREEN_HEIGHT, GameSettings, GameState, OwnerType
 
@@ -115,17 +117,21 @@ class TowerWarGame(Observer):
             self.current_level = level
             self.result_shown = False  # Reset flag
         
+        fade_out(self.screen, self.clock)
         self.app_state = "game"
+        fade_in(self.screen, self.clock)
         print(f"Game started at level {level}")
     
     def start_next_level(self):
         """Bắt đầu level tiếp theo"""
         if self.controller and self.controller.level_manager.advance_to_next_level():
             next_level = self.controller.level_manager.current_level
+            fade_out(self.screen, self.clock)
             self.controller.restart_game()
             self.current_level = next_level
             self.result_shown = False  # Reset flag
             self.app_state = "game"
+            fade_in(self.screen, self.clock)
             print(f"Advanced to level {next_level}")
         else:
             print("No more levels available")
@@ -159,9 +165,11 @@ class TowerWarGame(Observer):
     
     def return_to_menu(self):
         """Quay về menu"""
+        fade_out(self.screen, self.clock)
         self.app_state = "menu"
         self.result_shown = False  # Reset flag
         self.menu_manager.reset_to_main()
+        fade_in(self.screen, self.clock)
         print("Returned to main menu")
     
     def update_observer(self, event_type: str, data: dict):
@@ -576,12 +584,11 @@ def main():
         
     try:
         pygame.init()
-        from src.utils.constants import SCREEN_WIDTH, SCREEN_HEIGHT
         screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
         pygame.display.set_caption("Tower War")
 
         from src.views.intro_view import show_intro
-        show_intro(screen, max_duration=5000)  # Loading tối đa 5 giây
+        show_intro(screen, max_duration=4000)  # Loading tối đa 4 giây
 
         game = TowerWarGame()
         game.run()
