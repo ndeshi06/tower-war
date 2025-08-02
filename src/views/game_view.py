@@ -20,11 +20,7 @@ class GameView(Observer):
             self.size = size
             self.start_time = start_time
             self.animation_manager = animation_manager
-            
-            # Offset enemy dead animation to the right for better visibility
-            if owner == 'enemy':
-                self.x += 20  # Move enemy dead animation 20 pixels to the right
-        def draw(self, screen, now):
+        def draw(self, screen, now, scale_factor=1.0):
             if self.owner == 'player':
                 frames = self.animation_manager.get_player_troops_dead(self.size)
             else:
@@ -42,7 +38,15 @@ class GameView(Observer):
             if self.owner == 'enemy':
                 frame = pygame.transform.flip(frame, True, False)
             
-            rect = frame.get_rect(center=(int(self.x), int(self.y)))
+            # Scale position during drawing
+            scaled_x = int(self.x * scale_factor)
+            scaled_y = int(self.y * scale_factor)
+            
+            # Offset enemy dead animation to the right for better visibility
+            if self.owner == 'enemy':
+                scaled_x += int(10 * scale_factor)  # Move enemy dead animation to the right
+            
+            rect = frame.get_rect(center=(scaled_x, scaled_y))
             screen.blit(frame, rect)
     
     class TowerDustAnim:
@@ -52,7 +56,7 @@ class GameView(Observer):
             self.size = size
             self.start_time = start_time
             self.animation_manager = animation_manager
-        def draw(self, screen, now):
+        def draw(self, screen, now, scale_factor=1.0):
             frames = self.animation_manager.get_attack_animation(self.size)
             if not frames:
                 return
@@ -62,7 +66,12 @@ class GameView(Observer):
             if frame_idx >= frame_count:
                 return  # Animation finished
             frame = frames[frame_idx]
-            rect = frame.get_rect(center=(int(self.x), int(self.y)))
+            
+            # Scale position during drawing
+            scaled_x = int(self.x * scale_factor)
+            scaled_y = int(self.y * scale_factor)
+            
+            rect = frame.get_rect(center=(scaled_x, scaled_y))
             screen.blit(frame, rect)
     """
     Main game view class - responsible for rendering all game objects
@@ -142,9 +151,10 @@ class GameView(Observer):
             new_ids = set(id(t) for t in new_troops)
             for troop in old_dead:
                 if id(troop) not in new_ids:
-                    size = (max(1, int(troop.radius * 2 * self.scale_factor)),) * 2
+                    # Use original coordinates for animations (they'll be scaled during rendering)
+                    size = (max(1, int(troop.radius * 2)),) * 2
                     start_time = getattr(troop, 'dead_time', now)
-                    anim = self.DeadTroopAnim(troop.x * self.scale_factor, troop.y * self.scale_factor, troop.owner, size, start_time, self.animation_manager)
+                    anim = self.DeadTroopAnim(troop.x, troop.y, troop.owner, size, start_time, self.animation_manager)
                     self.dead_animations.append(anim)
             self._last_troops = list(new_troops)
         
@@ -156,11 +166,11 @@ class GameView(Observer):
                 # Clean old animations first
                 self.tower_dust_animations[:] = [anim for anim in self.tower_dust_animations if now - anim.start_time < 900]  # 9 frames * 100ms
                 
-                # Create dust animation at tower position
-                dust_size = (int(tower.radius * 4 * self.scale_factor), int(tower.radius * 4 * self.scale_factor))
+                # Create dust animation at tower position (use original coordinates)
+                dust_size = (int(tower.radius * 4), int(tower.radius * 4))
                 dust_anim = self.TowerDustAnim(
-                    tower.x * self.scale_factor, 
-                    tower.y * self.scale_factor, 
+                    tower.x, 
+                    tower.y, 
                     dust_size, 
                     now, 
                     self.animation_manager
@@ -277,35 +287,86 @@ class GameView(Observer):
         Main draw method
         Template Method Pattern - định nghĩa skeleton của rendering process
         """
-        # Calculate current scale factor for consistent rendering
-        # In fullscreen mode, the main app handles the scaling by creating a scaled surface
-        # So we should always use the responsive scaling based on current surface size
+        # For native fullscreen, we need to handle scaling differently
         screen_width = self.screen.get_width()
         screen_height = self.screen.get_height()
-        scale_x = screen_width / SCREEN_WIDTH
-        scale_y = screen_height / SCREEN_HEIGHT
-        self.scale_factor = min(scale_x, scale_y)  # Use uniform scaling to maintain aspect ratio
         
-        # Update UI components with current screen
-        # Update UI components screen references
-        if hasattr(self.hud, 'screen'):
-            self.hud.screen = self.screen
-        if hasattr(self.game_over_screen, 'screen'):
-            self.game_over_screen.screen = self.screen
-        if hasattr(self.pause_menu, 'screen'):
-            self.pause_menu.screen = self.screen
+        # Check if we're in fullscreen mode (screen size != original game size)
+        is_fullscreen = (screen_width != SCREEN_WIDTH or screen_height != SCREEN_HEIGHT)
+        
+        if is_fullscreen:
+            # Create a game surface at original resolution
+            game_surface = pygame.Surface((SCREEN_WIDTH, SCREEN_HEIGHT))
+            self.scale_factor = 1.0  # No scaling on game surface
             
-        # Clear screen
-        self._clear_screen()
-        
-        # Draw background elements
-        self._draw_background()
-        
-        # Draw game objects
-        self._draw_game_objects(dt)
-        
-        # Draw UI
-        self._draw_ui()
+            # Temporarily switch to game surface for rendering
+            original_screen = self.screen
+            self.screen = game_surface
+            
+            # Clear game surface
+            self._clear_screen()
+            
+            # Draw background elements
+            self._draw_background()
+            
+            # Draw game objects
+            self._draw_game_objects(dt)
+            
+            # Draw UI
+            self._draw_ui()
+            
+            # Restore original screen
+            self.screen = original_screen
+            
+            # Calculate scale to fit screen while maintaining aspect ratio
+            scale_x = screen_width / SCREEN_WIDTH
+            scale_y = screen_height / SCREEN_HEIGHT
+            scale = min(scale_x, scale_y)
+            
+            # Calculate centered position
+            scaled_width = int(SCREEN_WIDTH * scale)
+            scaled_height = int(SCREEN_HEIGHT * scale)
+            offset_x = (screen_width - scaled_width) // 2
+            offset_y = (screen_height - scaled_height) // 2
+            
+            # Clear screen with black bars
+            self.screen.fill((0, 0, 0))
+            
+            # Scale and blit game surface to screen
+            scaled_surface = pygame.transform.scale(game_surface, (scaled_width, scaled_height))
+            self.screen.blit(scaled_surface, (offset_x, offset_y))
+            
+            # Store scaling info for mouse input translation
+            self.scale_factor = scale
+            self.offset_x = offset_x
+            self.offset_y = offset_y
+        else:
+            # Windowed mode - use normal scaling
+            scale_x = screen_width / SCREEN_WIDTH
+            scale_y = screen_height / SCREEN_HEIGHT
+            self.scale_factor = min(scale_x, scale_y)
+            self.offset_x = 0
+            self.offset_y = 0
+            
+            # Update UI components with current screen
+            if hasattr(self.hud, 'screen'):
+                self.hud.screen = self.screen
+            if hasattr(self.game_over_screen, 'screen'):
+                self.game_over_screen.screen = self.screen
+            if hasattr(self.pause_menu, 'screen'):
+                self.pause_menu.screen = self.screen
+                
+            # Clear screen
+            self._clear_screen()
+            
+            # Draw background elements
+            self._draw_background()
+            
+            # Draw game objects
+            self._draw_game_objects(dt)
+            
+            # Draw UI
+            self._draw_ui()
         
         # Update display
         pygame.display.flip()
@@ -465,7 +526,7 @@ class GameView(Observer):
         # Then draw dead animations on top
         self.dead_animations[:] = [anim for anim in self.dead_animations if now - anim.start_time < anim_duration(anim)]
         for anim in self.dead_animations:
-            anim.draw(self.screen, now)
+            anim.draw(self.screen, now, self.scale_factor)
     
     def _draw_tower_dust_animations(self):
         """Draw tower dust animations when towers change owner"""
@@ -474,7 +535,7 @@ class GameView(Observer):
         self.tower_dust_animations[:] = [anim for anim in self.tower_dust_animations if now - anim.start_time < 900]
         # Draw remaining animations
         for anim in self.tower_dust_animations:
-            anim.draw(self.screen, now)
+            anim.draw(self.screen, now, self.scale_factor)
     
     def _draw_scaled_troop(self, troop: Troop):
         """Draw a single troop with animation, dead troops show death animation without dust"""

@@ -48,14 +48,22 @@ class TowerWarGame(Observer):
     Thể hiện Facade Pattern - cung cấp interface đơn giản cho complex subsystem
     """
     
-    def __init__(self):
+    def __init__(self, screen=None):
         # Initialize pygame
         pygame.init()
         
-        # Setup display
-        self.screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
+        # Setup display - use existing screen if provided, otherwise create new one
+        if screen is not None:
+            self.screen = screen
+            # Detect if we're in fullscreen mode by checking display flags
+            current_size = screen.get_size()
+            display_flags = pygame.display.get_surface().get_flags()
+            self.fullscreen = bool(display_flags & pygame.FULLSCREEN)
+        else:
+            self.screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
+            self.fullscreen = False
+            
         pygame.display.set_caption("Tower War")
-        self.fullscreen = False
         
         # Scaling for fullscreen mode
         self.scale_x = 1.0
@@ -369,8 +377,25 @@ class TowerWarGame(Observer):
         """Handle mouse click events"""
         if event.button == 1:  # Left click
             if self.controller and self.view:
+                # Translate mouse coordinates for UI clicks
+                scale_factor = self.view.scale_factor
+                offset_x = getattr(self.view, 'offset_x', 0)
+                offset_y = getattr(self.view, 'offset_y', 0)
+                
+                # Translate mouse coordinates from screen to game coordinates
+                mouse_x = event.pos[0] - offset_x
+                mouse_y = event.pos[1] - offset_y
+                translated_x = mouse_x / scale_factor
+                translated_y = mouse_y / scale_factor
+                
+                # Use translated coordinates for UI if within game area
+                if (0 <= translated_x <= SCREEN_WIDTH and 0 <= translated_y <= SCREEN_HEIGHT):
+                    ui_pos = (translated_x, translated_y)
+                else:
+                    ui_pos = event.pos
+                
                 # Check UI clicks first
-                ui_action = self.view.handle_ui_click(event.pos)
+                ui_action = self.view.handle_ui_click(ui_pos)
                 
                 if ui_action == "restart":
                     # Hide pause menu first
@@ -411,20 +436,32 @@ class TowerWarGame(Observer):
                 else:
                     # Game click - only if not paused
                     if self.controller.game_state == GameState.PLAYING:
-                        # Scale mouse coordinates for game logic
-                        if self.view:
-                            # Get scale factor from game view
-                            scale_factor = self.view.scale_factor
-                            scaled_x = event.pos[0] / scale_factor
-                            scaled_y = event.pos[1] / scale_factor
-                            self.controller.handle_click((scaled_x, scaled_y))
+                        # Use the same translated coordinates from UI click handling
+                        if (0 <= translated_x <= SCREEN_WIDTH and 0 <= translated_y <= SCREEN_HEIGHT):
+                            self.controller.handle_click((translated_x, translated_y))
                         else:
+                            # Fallback to original coordinates if translation failed
                             self.controller.handle_click(event.pos)
     
     def _handle_mouse_motion(self, event):
         """Handle mouse motion events"""
         if self.view:
-            self.view.update_mouse_position(event.pos)
+            # Translate mouse coordinates for UI elements in fullscreen mode
+            scale_factor = self.view.scale_factor
+            offset_x = getattr(self.view, 'offset_x', 0)
+            offset_y = getattr(self.view, 'offset_y', 0)
+            
+            # Translate mouse coordinates from screen to game coordinates
+            mouse_x = event.pos[0] - offset_x
+            mouse_y = event.pos[1] - offset_y
+            translated_x = mouse_x / scale_factor
+            translated_y = mouse_y / scale_factor
+            
+            # Only update if within game area, otherwise use original coordinates
+            if (0 <= translated_x <= SCREEN_WIDTH and 0 <= translated_y <= SCREEN_HEIGHT):
+                self.view.update_mouse_position((translated_x, translated_y))
+            else:
+                self.view.update_mouse_position(event.pos)
     
     def _update(self, dt):
         """
@@ -530,9 +567,9 @@ def main():
         pygame.display.set_caption("Tower War")
 
         from src.views.intro_view import show_intro
-        show_intro(screen, max_duration=4000)  # Loading tối đa 4 giây
+        screen = show_intro(screen, max_duration=4000)  # Loading tối đa 4 giây, get updated screen
 
-        game = TowerWarGame()
+        game = TowerWarGame(screen)  # Pass the screen from intro
         # Don't start music here - let the game decide based on state
         game.run()
     except KeyboardInterrupt:

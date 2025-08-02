@@ -296,10 +296,10 @@ class GameOverScreen(UIView, Observer):
         title_font = self.get_font(GameSettings.FONT_LARGE, bold=True)
         
         if self.all_levels_complete:
-            title_text = "CHÚC MỪNG! HOÀN THÀNH TẤT CẢ!"
+            title_text = "Congratulations! All levels completed!"
             title_color = Colors.BLUE
         elif self.is_level_complete:
-            title_text = "HOÀN THÀNH LEVEL!"
+            title_text = "Congratulations! Level completed!"
             title_color = Colors.BLUE
         elif self.winner == 'player':
             title_text = "YOU WIN!"
@@ -496,15 +496,6 @@ class PauseMenu(UIView, Observer):
         title_rect = title_surface.get_rect()
         title_pos = (screen_width//2 - title_rect.width//2, screen_height//2 - 180)
         self.draw_text_with_shadow(screen, title_text, title_pos, Colors.DARK_BLUE, title_font)
-        
-        # Subtitle - tăng font size
-        subtitle_font = self.get_font(20)  # Tăng từ 16 lên 20
-        subtitle_text = "Choose an option to continue"
-        subtitle_surface = subtitle_font.render(subtitle_text, True, Colors.GRAY)
-        subtitle_rect = subtitle_surface.get_rect()
-        subtitle_pos = (screen_width//2 - subtitle_rect.width//2, screen_height//2 - 140)
-        screen.blit(subtitle_surface, subtitle_pos)
-        
         # Buttons với animation - tăng font size
         button_font = self.get_font(28, bold=True)  # Tăng từ 24 lên 28
         
