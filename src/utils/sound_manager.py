@@ -65,7 +65,7 @@ class SoundManager:
         self._sfx_volume = max(0.0, min(1.0, volume))
         print(f"[SoundManager] SFX volume set to {self._sfx_volume}")
 
-    def play_background_music(self, filename="background_music.mp3", volume=None):
+    def play_background_music(self, filename="sound_menu.mp3", volume=None):
         if volume is None:
             volume = self._music_volume
         
@@ -122,4 +122,12 @@ class SoundManager:
 
     def stop_all(self):
         pygame.mixer.stop()
+        pygame.mixer.music.stop()
+
+    def play_music(self, music_path, volume=0.5, loop=True):
+        pygame.mixer.music.load(music_path)
+        pygame.mixer.music.set_volume(volume)
+        pygame.mixer.music.play(-1 if loop else 0)
+
+    def stop_music(self):
         pygame.mixer.music.stop()

@@ -12,9 +12,16 @@ def show_intro(screen, max_duration=5000):
     percent_font = pygame.font.SysFont("Arial", 28)
     sub_font = pygame.font.SysFont("Arial", 24, italic=True)
 
+    
+
+    # Music intro
+    from src.utils.sound_manager import SoundManager
+    sound_manager = SoundManager()
+    sound_manager.play_music("sounds/sound_intro.mp3", loop=True)
+
     group_text = sub_font.render("A GAME MADE BY GROUP 6", True, (200, 200, 200))
     group_rect = group_text.get_rect(center=(width // 2, height // 2 + 80))
-
+    
     # Colors
     background_color = (30, 30, 60)
     bar_bg_color = (50, 50, 80)
@@ -66,6 +73,7 @@ def show_intro(screen, max_duration=5000):
 
         # Khi đủ 100%, chuyển qua hiệu ứng fade
         if progress_percent >= 100 or elapsed >= max_duration:
+            sound_manager.stop_music()
             fade_out(screen, clock)
             running = False
 
