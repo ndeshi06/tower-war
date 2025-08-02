@@ -213,17 +213,9 @@ class TowerWarGame(Observer):
             if event.type == pygame.KEYDOWN and event.key == pygame.K_F11:
                 self.toggle_fullscreen()
                 continue
-            # Scale mouse events if in fullscreen
+            
+            # Pass events directly without scaling
             scaled_event = event
-            if event.type in [pygame.MOUSEBUTTONDOWN, pygame.MOUSEBUTTONUP, pygame.MOUSEMOTION]:
-                if self.fullscreen and self.scale != 1.0:
-                    mouse_x, mouse_y = event.pos
-                    mouse_x = (mouse_x - self.offset_x) / self.scale
-                    mouse_y = (mouse_y - self.offset_y) / self.scale
-                    mouse_x = max(0, min(SCREEN_WIDTH, mouse_x))
-                    mouse_y = max(0, min(SCREEN_HEIGHT, mouse_y))
-                    scaled_event = pygame.event.Event(event.type, event.dict)
-                    scaled_event.pos = (int(mouse_x), int(mouse_y))
             if self.app_state == "menu":
                 action = self.menu_manager.handle_event(scaled_event)
                 if action == "start_game":
@@ -387,7 +379,15 @@ class TowerWarGame(Observer):
                 else:
                     # Game click - only if not paused
                     if self.controller.game_state == GameState.PLAYING:
-                        self.controller.handle_click(event.pos)
+                        # Scale mouse coordinates for game logic
+                        if self.view:
+                            # Get scale factor from game view
+                            scale_factor = self.view.scale_factor
+                            scaled_x = event.pos[0] / scale_factor
+                            scaled_y = event.pos[1] / scale_factor
+                            self.controller.handle_click((scaled_x, scaled_y))
+                        else:
+                            self.controller.handle_click(event.pos)
     
     def _handle_mouse_motion(self, event):
         """Handle mouse motion events"""
@@ -420,53 +420,32 @@ class TowerWarGame(Observer):
         # Clear screen
         self.screen.fill((0, 0, 0))
         
-        # Create a surface for the game content
-        if self.fullscreen and self.scale != 1.0:
-            # Create a surface with original game size
-            game_surface = pygame.Surface((SCREEN_WIDTH, SCREEN_HEIGHT))
-            game_surface.fill((0, 0, 0))
-            current_surface = game_surface
-        else:
-            current_surface = self.screen
-        
         if self.app_state == "menu":
             # Render menu
-            self.menu_manager.render(current_surface)
+            self.menu_manager.render(self.screen)
             
         elif self.app_state == "level_select":
             # Render level selection
-            self.level_select_view.draw(current_surface)
+            self.level_select_view.draw(self.screen)
             
         elif self.app_state == "game":
             # Render game
             if self.view:
-                # Temporarily update view's screen reference for fullscreen
-                original_screen = self.view.screen
-                self.view.screen = current_surface
                 self.view.draw(dt)
-                self.view.screen = original_screen  # Restore
                     
         elif self.app_state == "result":
             # Render game result - don't draw game view to prevent flickering
             # Clear screen with black background
-            current_surface.fill((0, 0, 0))
+            self.screen.fill((0, 0, 0))
             
             # Draw result overlay only
             if self.winner == OwnerType.PLAYER:
                 all_complete = self.current_level >= 3 and not self.has_next_level
                 self.game_result_view.draw_win_screen(
-                    current_surface, self.current_level, self.has_next_level, all_complete
+                    self.screen, self.current_level, self.has_next_level, all_complete
                 )
             else:
-                self.game_result_view.draw_lose_screen(current_surface, self.current_level)
-        
-        # Scale and blit to actual screen if in fullscreen
-        if self.fullscreen and self.scale != 1.0:
-            # Scale the game surface maintaining aspect ratio
-            scaled_width = int(SCREEN_WIDTH * self.scale)
-            scaled_height = int(SCREEN_HEIGHT * self.scale)
-            scaled_surface = pygame.transform.scale(game_surface, (scaled_width, scaled_height))
-            self.screen.blit(scaled_surface, (self.offset_x, self.offset_y))
+                self.game_result_view.draw_lose_screen(self.screen, self.current_level)
         
         # Update display
         pygame.display.flip()
@@ -479,36 +458,26 @@ class TowerWarGame(Observer):
     def toggle_fullscreen(self):
         """Toggle between fullscreen and windowed mode"""
         self.fullscreen = not self.fullscreen
+        
+        # Reset display to avoid issues
+        pygame.display.quit()
+        pygame.display.init()
+        
         if self.fullscreen:
-            # Get current display info to scale properly
-            info = pygame.display.Info()
-            screen_width = info.current_w
-            screen_height = info.current_h
-            
-            self.screen = pygame.display.set_mode((screen_width, screen_height), pygame.FULLSCREEN)
-            
-            # Calculate scaling factors while keeping aspect ratio
-            scale_x = screen_width / SCREEN_WIDTH
-            scale_y = screen_height / SCREEN_HEIGHT
-            # Use the smaller scale to maintain aspect ratio
-            self.scale = min(scale_x, scale_y)
-            self.scale_x = self.scale
-            self.scale_y = self.scale
-            
-            # Calculate scaled dimensions and center the game
-            scaled_width = int(SCREEN_WIDTH * self.scale)
-            scaled_height = int(SCREEN_HEIGHT * self.scale)
-            self.offset_x = (screen_width - scaled_width) // 2
-            self.offset_y = (screen_height - scaled_height) // 2
+            # Native fullscreen resolution
+            self.screen = pygame.display.set_mode((0, 0), pygame.FULLSCREEN)
         else:
+            # Windowed mode with original resolution
             self.screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
-            
-            # Reset scaling
-            self.scale_x = 1.0
-            self.scale_y = 1.0  
-            self.scale = 1.0
-            self.offset_x = 0
-            self.offset_y = 0
+        
+        pygame.display.set_caption("Tower War")
+        
+        # Reset scaling values (no longer needed)
+        self.scale_x = 1.0
+        self.scale_y = 1.0  
+        self.scale = 1.0
+        self.offset_x = 0
+        self.offset_y = 0
         
         # Update views with new screen
         if self.view:

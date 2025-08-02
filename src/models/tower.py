@@ -249,18 +249,20 @@ class Tower(GameObject, Clickable, Subject):
     def __draw_troops_text(self, screen: pygame.Surface):
         """Private method để vẽ text số quân - Encapsulation"""
         try:
-            # Sử dụng system font thay vì None để tránh lỗi
-            font = pygame.font.SysFont('Arial', GameSettings.FONT_MEDIUM, bold=True)
+            # Scale font size based on current scale
+            font_size = max(12, int(GameSettings.FONT_MEDIUM * self._scale))
+            font = pygame.font.SysFont('Arial', font_size, bold=True)
         except:
             # Fallback nếu không có Arial
-            font = pygame.font.Font(None, GameSettings.FONT_MEDIUM)
+            font_size = max(12, int(GameSettings.FONT_MEDIUM * self._scale))
+            font = pygame.font.Font(None, font_size)
         
         text = font.render(str(self.__troops), True, Colors.WHITE)
-        text_rect = text.get_rect(midbottom=(self.x, self.y - self.radius - 4))
+        text_rect = text.get_rect(midbottom=(self.x, self.y - self.radius - int(4 * self._scale)))
         
         # Vẽ shadow cho text để dễ đọc hơn
         shadow = font.render(str(self.__troops), True, Colors.BLACK)
-        shadow_rect = shadow.get_rect(midbottom=(self.x + 1, self.y - self.radius - 3))
+        shadow_rect = shadow.get_rect(midbottom=(self.x + 1, self.y - self.radius - int(3 * self._scale)))
 
         screen.blit(shadow, shadow_rect)
         screen.blit(text, text_rect)

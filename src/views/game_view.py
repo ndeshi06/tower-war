@@ -20,13 +20,47 @@ class GameView(Observer):
             self.size = size
             self.start_time = start_time
             self.animation_manager = animation_manager
+            
+            # Offset enemy dead animation to the right for better visibility
+            if owner == 'enemy':
+                self.x += 20  # Move enemy dead animation 20 pixels to the right
         def draw(self, screen, now):
             if self.owner == 'player':
                 frames = self.animation_manager.get_player_troops_dead(self.size)
             else:
                 frames = self.animation_manager.get_enemy_troops_dead(self.size)
+            if not frames:
+                return
             frame_count = len(frames)
-            frame_idx = int((now - self.start_time) / 100) % frame_count
+            elapsed = now - self.start_time
+            frame_idx = int(elapsed / 100)
+            if frame_idx >= frame_count:
+                frame_idx = frame_count - 1  # Stay on last frame
+            frame = frames[frame_idx]
+            
+            # Flip enemy dead animation to face opposite direction
+            if self.owner == 'enemy':
+                frame = pygame.transform.flip(frame, True, False)
+            
+            rect = frame.get_rect(center=(int(self.x), int(self.y)))
+            screen.blit(frame, rect)
+    
+    class TowerDustAnim:
+        def __init__(self, x, y, size, start_time, animation_manager):
+            self.x = x
+            self.y = y
+            self.size = size
+            self.start_time = start_time
+            self.animation_manager = animation_manager
+        def draw(self, screen, now):
+            frames = self.animation_manager.get_attack_animation(self.size)
+            if not frames:
+                return
+            frame_count = len(frames)
+            elapsed = now - self.start_time
+            frame_idx = int(elapsed / 100)
+            if frame_idx >= frame_count:
+                return  # Animation finished
             frame = frames[frame_idx]
             rect = frame.get_rect(center=(int(self.x), int(self.y)))
             screen.blit(frame, rect)
@@ -59,6 +93,7 @@ class GameView(Observer):
         self.towers: List[Tower] = []
         self.troops: List[Troop] = []
         self.dead_animations = []
+        self.tower_dust_animations = []
         
         # Visual effects
         self.selection_pulse_time = 0
@@ -85,12 +120,13 @@ class GameView(Observer):
             self.towers = data.get('towers', [])
         
         elif event_type == "troops_updated":
-            # Cách đơn giản và chắc chắn: mỗi lần troop bị remove và là dead thì tạo anim mới
+            # Handle dead troop animations but without dust
             old_troops = getattr(self, '_last_troops', [])
             new_troops = data.get('troops', [])
             self.troops = new_troops
             now = pygame.time.get_ticks()
-            # Xoá dead animation đã hết thời gian
+            
+            # Clean expired dead animations
             def anim_duration(anim):
                 if anim.owner == 'player':
                     frames = anim.animation_manager.get_player_troops_dead(anim.size)
@@ -100,17 +136,36 @@ class GameView(Observer):
                     return 500
                 return len(frames) * 100
             self.dead_animations[:] = [anim for anim in self.dead_animations if now - anim.start_time < anim_duration(anim)]
-            # Tạo anim cho troop vừa bị remove và là dead
+            
+            # Create animations for newly dead troops
             old_dead = [t for t in old_troops if getattr(t, 'is_dead', False) and getattr(t, 'dead_time', None) is not None]
             new_ids = set(id(t) for t in new_troops)
             for troop in old_dead:
                 if id(troop) not in new_ids:
                     size = (max(1, int(troop.radius * 2 * self.scale_factor)),) * 2
-                    # Sử dụng troop.dead_time làm start_time để đảm bảo anim hết hạn đúng lúc
                     start_time = getattr(troop, 'dead_time', now)
                     anim = self.DeadTroopAnim(troop.x * self.scale_factor, troop.y * self.scale_factor, troop.owner, size, start_time, self.animation_manager)
                     self.dead_animations.append(anim)
             self._last_troops = list(new_troops)
+        
+        elif event_type == "tower_captured":
+            # Add dust animation when tower changes owner
+            tower = data.get('tower')
+            if tower:
+                now = pygame.time.get_ticks()
+                # Clean old animations first
+                self.tower_dust_animations[:] = [anim for anim in self.tower_dust_animations if now - anim.start_time < 900]  # 9 frames * 100ms
+                
+                # Create dust animation at tower position
+                dust_size = (int(tower.radius * 4 * self.scale_factor), int(tower.radius * 4 * self.scale_factor))
+                dust_anim = self.TowerDustAnim(
+                    tower.x * self.scale_factor, 
+                    tower.y * self.scale_factor, 
+                    dust_size, 
+                    now, 
+                    self.animation_manager
+                )
+                self.tower_dust_animations.append(dust_anim)
         
         elif event_type == "game_over":
             self.game_state = GameState.GAME_OVER  
@@ -198,6 +253,13 @@ class GameView(Observer):
         
         return None
     
+    def get_current_scale_info(self) -> dict:
+        """Get current scaling information for debugging"""
+        return {
+            'scale_factor': self.scale_factor,
+            'screen_size': (self.screen.get_width(), self.screen.get_height()) if self.screen else (0, 0)
+        }
+    
     def show_pause_menu(self):
         """Show pause menu"""
         self.pause_menu.visible = True
@@ -216,6 +278,8 @@ class GameView(Observer):
         Template Method Pattern - định nghĩa skeleton của rendering process
         """
         # Calculate current scale factor for consistent rendering
+        # In fullscreen mode, the main app handles the scaling by creating a scaled surface
+        # So we should always use the responsive scaling based on current surface size
         screen_width = self.screen.get_width()
         screen_height = self.screen.get_height()
         scale_x = screen_width / SCREEN_WIDTH
@@ -289,6 +353,9 @@ class GameView(Observer):
         # Draw troops
         self._draw_troops()
         
+        # Draw tower dust animations (when towers change owner)
+        self._draw_tower_dust_animations()
+        
         # Draw connections for selected tower
         self._draw_tower_connections()
     
@@ -301,9 +368,6 @@ class GameView(Observer):
     
     def _draw_scaled_tower(self, tower: Tower):
         """Draw a single tower with scaling, including flying rock effect"""
-        # Tạm thời scale lại surface để vẽ tower đúng vị trí và hiệu ứng
-        # Tạo surface tạm để vẽ tower ở scale 1.0, sau đó scale/blit lên màn hình chính
-        # Nhưng để đơn giản, ta sẽ vẽ trực tiếp lên màn hình với scale hiện tại
         # Lưu lại các thuộc tính gốc
         orig_x, orig_y = tower.x, tower.y
         orig_radius = tower.radius
@@ -312,6 +376,8 @@ class GameView(Observer):
         tower.x = tower.x * self.scale_factor
         tower.y = tower.y * self.scale_factor
         tower._scale = tower._scale * self.scale_factor
+        # Scale radius for text positioning
+        tower._Tower__radius = tower._Tower__radius * self.scale_factor
         # Vẽ tower (bao gồm flying rock)
         tower.draw(self.screen)
         # Vẽ selection highlight nếu cần
@@ -322,6 +388,7 @@ class GameView(Observer):
         tower.x = orig_x
         tower.y = orig_y
         tower._scale = orig_scale
+        tower._Tower__radius = orig_radius
     
     def _draw_scaled_troops_text(self, tower: Tower, x: int, y: int, radius: int):
         """Draw troops text with proper scaling"""
@@ -377,74 +444,92 @@ class GameView(Observer):
         self.screen.blit(pulse_surface, pulse_rect)
     
     def _draw_troops(self):
-        """Draw all troops with proper scaling - simplified without paths"""
+        """Draw all troops with proper scaling and dead animations"""
         now = pygame.time.get_ticks()
-        # Luôn xoá dead animation đã hết thời gian ở đây (dù không có update_observer)
+        
+        # Clean expired dead animations
         def anim_duration(anim):
             if anim.owner == 'player':
                 frames = anim.animation_manager.get_player_troops_dead(anim.size)
             else:
                 frames = anim.animation_manager.get_enemy_troops_dead(anim.size)
-            # Nếu frames rỗng, fallback 500ms để không bị giữ vĩnh viễn
             if not frames or len(frames) == 0:
                 return 500
-            return len(frames) * 100  # mỗi frame 100ms, giống draw()
-
-        # Vẽ troop sống bình thường trước
+            return len(frames) * 100
+        
+        # Draw active troops first
         for troop in self.troops:
             if troop.active:
                 self._draw_scaled_troop(troop)
-        # Sau đó vẽ dead animation lên trên cùng
+        
+        # Then draw dead animations on top
         self.dead_animations[:] = [anim for anim in self.dead_animations if now - anim.start_time < anim_duration(anim)]
         for anim in self.dead_animations:
             anim.draw(self.screen, now)
     
+    def _draw_tower_dust_animations(self):
+        """Draw tower dust animations when towers change owner"""
+        now = pygame.time.get_ticks()
+        # Clean expired animations (9 frames * 100ms = 900ms)
+        self.tower_dust_animations[:] = [anim for anim in self.tower_dust_animations if now - anim.start_time < 900]
+        # Draw remaining animations
+        for anim in self.tower_dust_animations:
+            anim.draw(self.screen, now)
+    
     def _draw_scaled_troop(self, troop: Troop):
-        """Draw a single troop with animation (cat/dog), dog sẽ flip nếu chạy sang trái"""
+        """Draw a single troop with animation, dead troops show death animation without dust"""
         scaled_x = int(troop.x * self.scale_factor)
         scaled_y = int(troop.y * self.scale_factor)
         size = (max(1, int(troop.radius * 2 * self.scale_factor)),) * 2
         now = pygame.time.get_ticks()
+        
         if hasattr(troop, 'is_dead') and troop.is_dead:
+            # Draw death animation without dust
             dead_time = getattr(troop, 'dead_time', None)
             base_time = dead_time if dead_time is not None else now
             elapsed = now - base_time
-            dust_size = tuple(int(s * 2) for s in size)
-            dust_frames = list(self.animation_manager.get_attack_animation(dust_size))
-            dust_frame_count = 9
-            dust_total = dust_frame_count * 100
+            
+            # Offset enemy dead animation position for better visibility
+            if troop.owner == 'enemy':
+                scaled_x += int(20 * self.scale_factor)  # Move enemy dead animation to the right
+            
             if troop.owner == 'player':
                 dead_frames = list(self.animation_manager.get_player_troops_dead(size))
             else:
                 dead_frames = list(self.animation_manager.get_enemy_troops_dead(size))
-            dead_frame_count = len(dead_frames)
-            # Nếu chưa hết dust thì chỉ vẽ dust
-            if elapsed < dust_total:
+            
+            if dead_frames:
+                dead_frame_count = len(dead_frames)
                 frame_idx = int(elapsed // 100)
-                if frame_idx >= dust_frame_count:
-                    frame_idx = dust_frame_count - 1
-                frame = dust_frames[frame_idx]
-            else:
-                dead_elapsed = elapsed - dust_total
-                if dead_frame_count == 0:
-                    return
-                frame_idx = int(dead_elapsed // 100) % dead_frame_count
+                if frame_idx >= dead_frame_count:
+                    frame_idx = dead_frame_count - 1  # Stay on last frame
                 frame = dead_frames[frame_idx]
+                
+                # Always flip enemy dead animation to face opposite direction
+                if troop.owner == 'enemy':
+                    frame = pygame.transform.flip(frame, True, False)
+            else:
+                return
         else:
+            # Draw running animation for active troops
             if troop.owner == 'player':
                 frames = list(self.animation_manager.get_player_troops_run(size))
             else:
                 frames = list(self.animation_manager.get_enemy_troops_run(size))
+            
             if not frames:
                 return
+            
             frame_count = len(frames)
             frame_idx = int(now / 100) % frame_count
             frame = frames[frame_idx]
-        # Flip dog nếu di chuyển sang trái
-        if troop.owner == 'enemy' and hasattr(troop, 'x') and hasattr(troop, 'target_position'):
-            target_x, _ = troop.target_position
-            if target_x < troop.x:
-                frame = pygame.transform.flip(frame, True, False)
+            
+            # Flip dog nếu di chuyển sang trái (only for running animation)
+            if troop.owner == 'enemy' and hasattr(troop, 'x') and hasattr(troop, 'target_position'):
+                target_x, _ = troop.target_position
+                if target_x < troop.x:
+                    frame = pygame.transform.flip(frame, True, False)
+        
         rect = frame.get_rect(center=(scaled_x, scaled_y))
         self.screen.blit(frame, rect)
     
@@ -692,9 +777,14 @@ class GameView(Observer):
     def get_tower_at_position(self, pos) -> Tower:
         """
         Helper method để tìm tower tại position
+        Scales the position based on current scale factor
         """
         x, y = pos
+        # Scale mouse coordinates to match game coordinates
+        game_x = x / self.scale_factor
+        game_y = y / self.scale_factor
+        
         for tower in self.towers:
-            if tower.contains_point(x, y):
+            if tower.contains_point(game_x, game_y):
                 return tower
         return None

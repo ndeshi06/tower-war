@@ -30,4 +30,4 @@ class AnimationManager:
     def get_enemy_troops_dead(self, size=None):
         return self.load_animation('enemy_troops', 'Dead', 5, size)
     def get_attack_animation(self, size=None):
-        return self.load_animation('dust', 'dust', 9, size)
+        return self.load_animation('dust', 'dust', 3, size)
