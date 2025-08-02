@@ -12,6 +12,10 @@ def show_intro(screen, max_duration=5000):
     percent_font = pygame.font.SysFont("Arial", 28)
     sub_font = pygame.font.SysFont("Arial", 24, italic=True)
 
+    from src.utils.sound_manager import SoundManager
+    sound_manager = SoundManager()
+    sound_manager.play_intro_music()
+
     group_text = sub_font.render("A GAME MADE BY GROUP 6", True, (200, 200, 200))
     group_rect = group_text.get_rect(center=(width // 2, height // 2 + 80))
 

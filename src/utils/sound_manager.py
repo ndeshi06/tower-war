@@ -65,7 +65,25 @@ class SoundManager:
         self._sfx_volume = max(0.0, min(1.0, volume))
         print(f"[SoundManager] SFX volume set to {self._sfx_volume}")
 
+    def is_music_playing(self):
+        """Check if music is currently playing"""
+        return pygame.mixer.music.get_busy()
+    
+    def get_current_music_file(self):
+        """Get currently playing music file name (we'll track this)"""
+        return getattr(self, '_current_music_file', None)
+    
+    def _set_current_music_file(self, filename):
+        """Internal method to track current music file"""
+        self._current_music_file = filename
+
     def play_background_music(self, filename="background_music.mp3", volume=None):
+        """Play background music for menus"""
+        # Don't restart if same music is already playing
+        if self.is_music_playing() and self.get_current_music_file() == filename:
+            print(f"[SoundManager] Background music {filename} already playing, continuing...")
+            return
+            
         if volume is None:
             volume = self._music_volume
         
@@ -76,9 +94,54 @@ class SoundManager:
             final_volume = volume * self._master_volume
             pygame.mixer.music.set_volume(final_volume)
             pygame.mixer.music.play(-1)  # -1 để phát lặp lại vô hạn
+            self._set_current_music_file(filename)
             print(f"[SoundManager] Background music started. Volume: {final_volume}")
         except pygame.error as e:
             print(f"[SoundManager] Failed to load background music: {e}")
+
+    def play_gameview_music(self, filename="gameview_music.mp3", volume=None):
+        """Play music for game view"""
+        # Don't restart if same music is already playing
+        if self.is_music_playing() and self.get_current_music_file() == filename:
+            print(f"[SoundManager] Gameview music {filename} already playing, continuing...")
+            return
+            
+        if volume is None:
+            volume = self._music_volume
+        
+        path = os.path.join(self.sounds_folder, filename)
+        try:
+            pygame.mixer.music.load(path)
+            # Music volume calculation - only affected by music_volume and master_volume
+            final_volume = volume * self._master_volume
+            pygame.mixer.music.set_volume(final_volume)
+            pygame.mixer.music.play(-1)  # -1 để phát lặp lại vô hạn
+            self._set_current_music_file(filename)
+            print(f"[SoundManager] Gameview music started. Volume: {final_volume}")
+        except pygame.error as e:
+            print(f"[SoundManager] Failed to load gameview music: {e}")
+
+    def play_intro_music(self, filename="sound_intro.mp3", volume=None):
+        """Play music for intro screen"""
+        # Don't restart if same music is already playing
+        if self.is_music_playing() and self.get_current_music_file() == filename:
+            print(f"[SoundManager] Intro music {filename} already playing, continuing...")
+            return
+            
+        if volume is None:
+            volume = self._music_volume
+        
+        path = os.path.join(self.sounds_folder, filename)
+        try:
+            pygame.mixer.music.load(path)
+            # Music volume calculation - only affected by music_volume and master_volume
+            final_volume = volume * self._master_volume
+            pygame.mixer.music.set_volume(final_volume)
+            pygame.mixer.music.play(-1)  # -1 để phát lặp lại vô hạn
+            self._set_current_music_file(filename)
+            print(f"[SoundManager] Intro music started. Volume: {final_volume}")
+        except pygame.error as e:
+            print(f"[SoundManager] Failed to load intro music: {e}")
 
     def load_sound(self, name: str, filename: str):
         """Load và cache âm thanh nếu chưa có"""

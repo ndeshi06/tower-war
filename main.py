@@ -91,7 +91,6 @@ class TowerWarGame(Observer):
         from src.utils.sound_manager import SoundManager
         self.sound_manager = SoundManager()
         self.sound_manager.preload()
-        self.sound_manager.play_background_music()
 
     def start_game(self, level=1):
         """Khởi tạo game components với level cụ thể"""
@@ -114,6 +113,9 @@ class TowerWarGame(Observer):
             self.current_level = level
             self.result_shown = False  # Reset flag
         
+        # Switch from background music to gameview music
+        self.sound_manager.play_gameview_music()
+        
         self.app_state = "game"
         fade_in(self.screen, self.clock)
     
@@ -124,6 +126,10 @@ class TowerWarGame(Observer):
             self.controller.restart_game()
             self.current_level = next_level
             self.result_shown = False  # Reset flag
+            
+            # Continue with gameview music for next level
+            self.sound_manager.play_gameview_music()
+            
             self.app_state = "game"
             fade_in(self.screen, self.clock)
         else:
@@ -133,11 +139,25 @@ class TowerWarGame(Observer):
         """Hiển thị level selection"""
         # Đảm bảo controller và level manager đã được khởi tạo
         if not self.controller:
-            self.start_game(1)  # Khởi tạo controller với level 1
-            self.return_to_menu()  # Quay về menu sau khi khởi tạo
+            # Initialize controller without starting gameview music
+            self.controller = GameController()  
+            self.view = GameView(self.screen)   
+            
+            # Setup Observer relationships
+            self.controller.attach(self.view)
+            self.controller.attach(self)  # Listen for game events
+            
+            # Initialize with level 1
+            self.controller.level_manager.set_level(1)
+            self.current_level = 1
         
         # Cập nhật level manager reference cho level select view
         self.level_select_view.level_manager = self.controller.level_manager
+        
+        # Don't restart music if already playing background music
+        if not (self.sound_manager.is_music_playing() and 
+                self.sound_manager.get_current_music_file() == "background_music.mp3"):
+            self.sound_manager.play_background_music()
         
         self.app_state = "level_select"
         fade_in(self.screen, self.clock)
@@ -159,6 +179,10 @@ class TowerWarGame(Observer):
         self.app_state = "menu"
         self.result_shown = False  # Reset flag
         self.menu_manager.reset_to_main()
+        
+        # Switch back to background music when returning to menu
+        self.sound_manager.play_background_music()
+        
         fade_in(self.screen, self.clock)
     
     def update_observer(self, event_type: str, data: dict):
@@ -182,6 +206,12 @@ class TowerWarGame(Observer):
         Main game loop
         Template Method Pattern - định nghĩa skeleton của game loop
         """
+        # Start appropriate music based on initial state
+        if self.app_state == "menu":
+            if (not self.sound_manager.is_music_playing() or 
+                self.sound_manager.get_current_music_file() != "background_music.mp3"):
+                self.sound_manager.play_background_music()
+        
         try:
             while self.running:
                 try:
@@ -348,6 +378,8 @@ class TowerWarGame(Observer):
                         self.view.hide_pause_menu()
                     self.result_shown = False  # Reset flag
                     self.controller.restart_game()
+                    # Ensure gameview music is playing
+                    self.sound_manager.play_gameview_music()
                 elif ui_action == "resume":
                     if hasattr(self.controller, 'pause_game'):
                         self.controller.pause_game()  # This will unpause
@@ -498,9 +530,10 @@ def main():
         pygame.display.set_caption("Tower War")
 
         from src.views.intro_view import show_intro
-        show_intro(screen, max_duration=4000)  # Loading tối đa 4 giây
+        show_intro(screen, max_duration=5000)  # Loading tối đa 5 giây
 
         game = TowerWarGame()
+        # Don't start music here - let the game decide based on state
         game.run()
     except KeyboardInterrupt:
         pass
