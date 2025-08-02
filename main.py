@@ -43,7 +43,6 @@ class TowerWarGame(Observer):
                 } for tr in getattr(self.controller, 'troops', [])
             ]
         pm.save(data)
-        print('Progression saved.')
     """
     Main game application class
     Thể hiện Facade Pattern - cung cấp interface đơn giản cho complex subsystem
@@ -65,8 +64,12 @@ class TowerWarGame(Observer):
         self.offset_x = 0
         self.offset_y = 0
         
+        # Game loop components
+        self.clock = pygame.time.Clock()
+        self.running = True
+        
         # Views
-        self.menu_manager = MenuManager(self.screen)
+        self.menu_manager = MenuManager(self.screen, self.clock)
         self.level_select_view = LevelSelectView(self.screen)
         self.game_result_view = GameResultView(self.screen)
         
@@ -81,11 +84,6 @@ class TowerWarGame(Observer):
         self.has_next_level = True
         self.result_shown = False  # Flag để tránh hiển thị result nhiều lần
         
-        # Game loop components
-        self.clock = pygame.time.Clock()
-        self.running = True
-        self.debug_mode = False
-        
         # Input handling
         self.keys_pressed = set()
 
@@ -93,7 +91,6 @@ class TowerWarGame(Observer):
         from src.utils.sound_manager import SoundManager
         self.sound_manager = SoundManager()
         self.sound_manager.preload()
-        print(">>> Playing background music")
         self.sound_manager.play_background_music()
 
     def start_game(self, level=1):
@@ -117,24 +114,19 @@ class TowerWarGame(Observer):
             self.current_level = level
             self.result_shown = False  # Reset flag
         
-        fade_out(self.screen, self.clock)
         self.app_state = "game"
         fade_in(self.screen, self.clock)
-        print(f"Game started at level {level}")
     
     def start_next_level(self):
         """Bắt đầu level tiếp theo"""
         if self.controller and self.controller.level_manager.advance_to_next_level():
             next_level = self.controller.level_manager.current_level
-            fade_out(self.screen, self.clock)
             self.controller.restart_game()
             self.current_level = next_level
             self.result_shown = False  # Reset flag
             self.app_state = "game"
             fade_in(self.screen, self.clock)
-            print(f"Advanced to level {next_level}")
         else:
-            print("No more levels available")
             self.return_to_menu()
     
     def show_level_select(self):
@@ -148,7 +140,7 @@ class TowerWarGame(Observer):
         self.level_select_view.level_manager = self.controller.level_manager
         
         self.app_state = "level_select"
-        print("Showing level selection")
+        fade_in(self.screen, self.clock)
     
     def show_result(self, winner, level, has_next_level):
         """Hiển thị kết quả game"""
@@ -161,16 +153,13 @@ class TowerWarGame(Observer):
         self.has_next_level = has_next_level
         self.result_shown = True
         self.game_result_view.reset_animation()
-        print(f"Showing result: Winner={winner}, Level={level}, HasNext={has_next_level}")
     
     def return_to_menu(self):
         """Quay về menu"""
-        fade_out(self.screen, self.clock)
         self.app_state = "menu"
         self.result_shown = False  # Reset flag
         self.menu_manager.reset_to_main()
         fade_in(self.screen, self.clock)
-        print("Returned to main menu")
     
     def update_observer(self, event_type: str, data: dict):
         """Observer implementation để nhận events từ game controller"""
@@ -193,13 +182,8 @@ class TowerWarGame(Observer):
         Main game loop
         Template Method Pattern - định nghĩa skeleton của game loop
         """
-        print("Starting Tower War Game...")
-        print(f"[DEBUG] self.running at start: {self.running}")
         try:
-            loop_count = 0
             while self.running:
-                print(f"[DEBUG] Main loop iteration {loop_count}, self.running={self.running}")
-                loop_count += 1
                 try:
                     # Calculate delta time
                     dt = self.clock.tick(GameSettings.FPS) / 1000.0
@@ -210,13 +194,10 @@ class TowerWarGame(Observer):
                     # Render
                     self._render(dt)
                 except Exception as e:
-                    print(f"[ERROR] Exception in main loop: {e}")
                     import traceback
                     traceback.print_exc()
                     self.running = False
-            print("[DEBUG] Exited main loop, self.running is False")
         finally:
-            print("[DEBUG] Entering finally block in run()")
             self.save_progression()
             self._cleanup()
     
@@ -225,14 +206,11 @@ class TowerWarGame(Observer):
         Handle all pygame events based on app state
         """
         for event in pygame.event.get():
-            print(f"[DEBUG] Event: {event}")
             if event.type == pygame.QUIT:
-                print("[DEBUG] Received QUIT event, setting self.running = False")
                 self.save_progression()
                 self.running = False
             # Handle F11 globally across all states
             if event.type == pygame.KEYDOWN and event.key == pygame.K_F11:
-                print("[DEBUG] F11 pressed, toggling fullscreen")
                 self.toggle_fullscreen()
                 continue
             # Scale mouse events if in fullscreen
@@ -248,40 +226,44 @@ class TowerWarGame(Observer):
                     scaled_event.pos = (int(mouse_x), int(mouse_y))
             if self.app_state == "menu":
                 action = self.menu_manager.handle_event(scaled_event)
-                print(f"[DEBUG] Menu action: {action}")
                 if action == "start_game":
+                    fade_out(self.screen, self.clock)
                     self.show_level_select()
                 elif action == "continue_game":
+                    fade_out(self.screen, self.clock)
                     self.load_progression()
                 elif action == "new_game":
+                    fade_out(self.screen, self.clock)
                     self.reset_progression()
                     self.show_level_select()
                 elif action == "quit":
-                    print("[DEBUG] Menu action 'quit', setting self.running = False")
+                    fade_out(self.screen, self.clock)
                     self.running = False
             elif self.app_state == "level_select":
                 # Level selection events
                 action = self.level_select_view.handle_event(scaled_event)
-                print(f"[DEBUG] Level select action: {action}")
                 if action and action.startswith("level_"):
                     level = int(action.split("_")[1])
+                    fade_out(self.screen, self.clock)
                     self.start_game(level)
                 elif action == "back_to_menu":
+                    fade_out(self.screen, self.clock)
                     self.return_to_menu()
             elif self.app_state == "result":
                 # Game result events
                 action = self.game_result_view.handle_event(scaled_event)
-                print(f"[DEBUG] Result action: {action}")
                 if action == "next_level":
+                    fade_out(self.screen, self.clock)
                     self.start_next_level()
                 elif action == "play_again":
                     self.result_shown = False  # Reset flag
+                    fade_out(self.screen, self.clock)
                     self.start_game(self.current_level)
                 elif action == "main_menu":
+                    fade_out(self.screen, self.clock)
                     self.return_to_menu()
             elif self.app_state == "game":
                 # Game events
-                print(f"[DEBUG] Game event: {scaled_event}")
                 if scaled_event.type == pygame.KEYDOWN:
                     self._handle_keydown(scaled_event)
                 elif scaled_event.type == pygame.KEYUP:
@@ -297,9 +279,7 @@ class TowerWarGame(Observer):
         pm = ProgressionManager()
         data = pm.load()
         if not data:
-            print('No progression found.')
             return
-        print('Progression loaded.')
         # Lưu lại level đã lưu để highlight trong màn hình chọn level
         self.current_level = data.get('current_level', 1)
         self.show_level_select()
@@ -311,7 +291,6 @@ class TowerWarGame(Observer):
         pm = ProgressionManager()
         if os.path.exists(pm.save_path):
             os.remove(pm.save_path)
-            print('Progression reset.')
     
     def _handle_keydown(self, event):
         """Handle key press events"""
@@ -377,14 +356,12 @@ class TowerWarGame(Observer):
                         self.view.hide_pause_menu()
                     self.result_shown = False  # Reset flag
                     self.controller.restart_game()
-                    print("Game restarted")
                 elif ui_action == "resume":
                     if hasattr(self.controller, 'pause_game'):
                         self.controller.pause_game()  # This will unpause
-                        print("Game resumed")
                 elif ui_action == "menu":
+                    fade_out(self.screen, self.clock)
                     self.return_to_menu()
-                    print("Returned to menu")
                 elif ui_action == "toggle_sound":
                     # Toggle sound effects in pause menu
                     if self.view and hasattr(self.view, 'pause_menu'):
@@ -394,7 +371,6 @@ class TowerWarGame(Observer):
                             self.sound_manager.set_sfx_volume(0.7)
                         else:
                             self.sound_manager.set_sfx_volume(0.0)
-                        print(f"Sound effects {'enabled' if self.view.pause_menu.sound_enabled else 'disabled'}")
                         # Sync back to menu manager
                         self.menu_manager.settings_menu.sound_enabled = self.view.pause_menu.sound_enabled
                 elif ui_action == "toggle_music":
@@ -406,7 +382,6 @@ class TowerWarGame(Observer):
                             self.sound_manager.set_music_volume(0.5)
                         else:
                             self.sound_manager.set_music_volume(0.0)
-                        print(f"Background music {'enabled' if self.view.pause_menu.music_enabled else 'disabled'}")
                         # Sync back to menu manager
                         self.menu_manager.settings_menu.music_enabled = self.view.pause_menu.music_enabled
                 else:
@@ -470,10 +445,6 @@ class TowerWarGame(Observer):
                 self.view.screen = current_surface
                 self.view.draw(dt)
                 self.view.screen = original_screen  # Restore
-                
-                # Debug overlay
-                if self.debug_mode:
-                    self._render_debug_info(current_surface)
                     
         elif self.app_state == "result":
             # Render game result - don't draw game view to prevent flickering
@@ -500,36 +471,8 @@ class TowerWarGame(Observer):
         # Update display
         pygame.display.flip()
     
-    def _render_debug_info(self, surface=None):
-        """Render debug information overlay"""
-        if not self.controller:
-            return
-        
-        if surface is None:
-            surface = self.screen
-            
-        import pygame.font
-        font = pygame.font.Font(None, 24)
-        
-        debug_info = [
-            f"FPS: {self.clock.get_fps():.1f}",
-            f"Game State: {self.controller.game_state}",
-            f"Player Towers: {len([t for t in self.controller.towers if t.owner == OwnerType.PLAYER])}",
-            f"Enemy Towers: {len([t for t in self.controller.towers if t.owner == OwnerType.ENEMY])}",
-            f"Neutral Towers: {len([t for t in self.controller.towers if t.owner == OwnerType.NEUTRAL])}",
-            f"Active Troops: {len(self.controller.troops)}",
-            f"Current Level: {self.current_level}"
-        ]
-        
-        y_offset = 10
-        for info in debug_info:
-            text_surface = font.render(info, True, (255, 255, 0))
-            surface.blit(text_surface, (10, y_offset))
-            y_offset += 25
-    
     def _cleanup(self):
         """Clean up resources"""
-        print("Cleaning up game resources...")
         pygame.quit()
         sys.exit()
     
@@ -543,7 +486,6 @@ class TowerWarGame(Observer):
             screen_height = info.current_h
             
             self.screen = pygame.display.set_mode((screen_width, screen_height), pygame.FULLSCREEN)
-            print(f"Switched to fullscreen mode ({screen_width}x{screen_height})")
             
             # Calculate scaling factors while keeping aspect ratio
             scale_x = screen_width / SCREEN_WIDTH
@@ -560,7 +502,6 @@ class TowerWarGame(Observer):
             self.offset_y = (screen_height - scaled_height) // 2
         else:
             self.screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
-            print("Switched to windowed mode")
             
             # Reset scaling
             self.scale_x = 1.0
@@ -593,9 +534,8 @@ def main():
         game = TowerWarGame()
         game.run()
     except KeyboardInterrupt:
-        print("\nGame interrupted by user")
+        pass
     except Exception as e:
-        print(f"Game error: {e}")
         import traceback
         traceback.print_exc()
     finally:

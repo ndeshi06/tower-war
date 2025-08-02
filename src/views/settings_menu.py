@@ -27,34 +27,21 @@ class SettingsMenu(UIView):
     
     def handle_click(self, pos: tuple) -> Optional[str]:
         """Handle settings button clicks"""
-        print(f"Settings click at: {pos}")
         
         # Make sure buttons are calculated
         if not self.sound_button:
             screen_width, screen_height = 1024, 576  # Default size
             self._recalculate_buttons(screen_width, screen_height)
         
-        print(f"Sound button: {self.sound_button}")
-        print(f"Music button: {self.music_button}")
-        print(f"Back button: {self.back_button}")
-        print(f"Current sound_enabled: {self.sound_enabled}")
-        print(f"Current music_enabled: {self.music_enabled}")
-        
         if self.sound_button and self.sound_button.collidepoint(pos):
-            old_state = self.sound_enabled
             self.sound_enabled = not self.sound_enabled
-            print(f"Sound toggled from {old_state} to: {self.sound_enabled}")
             return "toggle_sound"
         elif self.music_button and self.music_button.collidepoint(pos):
-            old_state = self.music_enabled
             self.music_enabled = not self.music_enabled
-            print(f"Music toggled from {old_state} to: {self.music_enabled}")
             return "toggle_music"
         elif self.back_button and self.back_button.collidepoint(pos):
-            print("Back button clicked")
             return "back"
         
-        print("No button clicked")
         return None
     
     def update_mouse_pos(self, pos: tuple):

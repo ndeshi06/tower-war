@@ -10,6 +10,7 @@ from ..views.settings_menu import SettingsMenu
 from ..views.help_menu import HelpMenu
 from ..utils.constants import SCREEN_WIDTH, SCREEN_HEIGHT
 from ..utils.sound_manager import SoundManager
+from ..utils.transition import fade_out, fade_in
 
 class MenuState(Enum):
     """Enum cho các trạng thái menu"""
@@ -24,9 +25,10 @@ class MenuManager:
     Thể hiện State Pattern cho menu navigation
     """
     
-    def __init__(self, screen=None):
+    def __init__(self, screen=None, clock=None):
         # Screen reference for scaling
         self.screen = screen
+        self.clock = clock
         
         # Current state
         self.current_state = MenuState.MAIN
@@ -53,11 +55,9 @@ class MenuManager:
         Handle click events và state transitions
         Returns: action string hoặc None
         """
-        print(f"MenuManager click at: {pos}, current state: {self.current_state}")
         
         if self.current_state == MenuState.MAIN:
             action = self.main_menu.handle_click(pos)
-            print(f"Main menu action: {action}")
             
             if action == "start_game":
                 self.current_state = MenuState.GAME
@@ -67,49 +67,57 @@ class MenuManager:
             elif action == "new_game":
                 return "new_game"
             elif action == "settings":
+                if self.screen and self.clock:
+                    fade_out(self.screen, self.clock)
                 self.current_state = MenuState.SETTINGS
                 self._update_visibility()
-                print("Switched to settings menu")
+                if self.screen and self.clock:
+                    fade_in(self.screen, self.clock)
             elif action == "help":
+                if self.screen and self.clock:
+                    fade_out(self.screen, self.clock)
                 self.current_state = MenuState.HELP
                 self._update_visibility()
+                if self.screen and self.clock:
+                    fade_in(self.screen, self.clock)
             elif action == "quit":
                 return "quit"
         
         elif self.current_state == MenuState.SETTINGS:
-            print("Handling settings menu click")
             action = self.settings_menu.handle_click(pos)
-            print(f"Settings menu action: {action}")
             
             if action == "back":
+                if self.screen and self.clock:
+                    fade_out(self.screen, self.clock)
                 self.current_state = MenuState.MAIN
                 self._update_visibility()
-                print("Back to main menu")
+                if self.screen and self.clock:
+                    fade_in(self.screen, self.clock)
             elif action == "toggle_sound":
                 # Don't toggle again! Settings menu already toggled it
-                print(f"MenuManager received toggle_sound, current state: {self.settings_menu.sound_enabled}")
                 # Update SoundManager's SFX volume based on current state
                 if self.settings_menu.sound_enabled:
                     self.sound_manager.set_sfx_volume(0.7)  # Restore SFX volume
                 else:
                     self.sound_manager.set_sfx_volume(0.0)  # Mute SFX only
-                print(f"Sound effects {'enabled' if self.settings_menu.sound_enabled else 'disabled'}")
             elif action == "toggle_music":
                 # Don't toggle again! Settings menu already toggled it
-                print(f"MenuManager received toggle_music, current state: {self.settings_menu.music_enabled}")
                 # Update background music volume based on current state
                 if self.settings_menu.music_enabled:
                     self.sound_manager.set_music_volume(0.5)  # Restore music volume
                 else:
                     self.sound_manager.set_music_volume(0.0)  # Mute music only
-                print(f"Background music {'enabled' if self.settings_menu.music_enabled else 'disabled'}")
         
         elif self.current_state == MenuState.HELP:
             action = self.help_menu.handle_click(pos)
             
             if action == "back":
+                if self.screen and self.clock:
+                    fade_out(self.screen, self.clock)
                 self.current_state = MenuState.MAIN
                 self._update_visibility()
+                if self.screen and self.clock:
+                    fade_in(self.screen, self.clock)
         
         return None
     

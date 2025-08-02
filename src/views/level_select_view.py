@@ -80,7 +80,6 @@ class LevelSelectView:
                         level = button['level']
                         # Kiểm tra level có mở khóa không
                         if self.level_manager and not self.level_manager.is_level_unlocked(level):
-                            print(f"Level {level} is locked!")
                             return None  # Không cho phép chọn level bị khóa
                         return f"level_{level}"
                 

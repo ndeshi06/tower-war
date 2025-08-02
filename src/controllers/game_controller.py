@@ -217,7 +217,6 @@ class GameController(Subject, Observer):
     def _init_new_level(self):
         """Khởi tạo level mới"""
         level_config = self._level_manager.get_current_level_config()
-        print(f"Initializing {level_config['name']}...")
         
         # Reset game objects
         self._towers.clear()
@@ -244,8 +243,6 @@ class GameController(Subject, Observer):
         # Notify observers về level mới
         self.notify("towers_updated", {"towers": self._towers})
         self.notify("troops_updated", {"troops": self._troops})
-        
-        print(f"Level {self._level_manager.current_level} initialized successfully")
     
     def update_observer(self, event_type: str, data: dict):
         """
@@ -267,9 +264,7 @@ class GameController(Subject, Observer):
             pass
         
         elif event_type == "ai_action_taken":
-            # Log AI actions for debugging
-            if hasattr(self, '_debug_mode') and self._debug_mode:
-                print(f"AI {data.get('strategy', 'Unknown')} sent {data.get('troops_count', 0)} troops")
+            pass  # AI action taken, no specific handling needed
     
     def _handle_tower_click(self, tower: Tower, position: Tuple[float, float]):
         """Xử lý click vào tower"""
@@ -357,10 +352,7 @@ class GameController(Subject, Observer):
             
         # Sort spawn queue theo thời gian để đảm bảo thứ tự đúng
         self._spawn_queue.sort(key=lambda x: x['spawn_time'])
-            
-        print(f"Created spawn queue for {count} {owner} troops with 120ms intervals, starting at {last_spawn_time}")
-
-    
+        
     def _process_spawn_queue(self):
         """Xử lý spawn queue để troops xuất hiện dần dần với timing chính xác"""
         if not self._spawn_queue:
@@ -403,8 +395,6 @@ class GameController(Subject, Observer):
                 "owner": spawn_entry['owner']
             })
             
-            print(f"Spawned troop {spawn_entry['formation_index']} at time {current_time} (scheduled: {spawn_entry['spawn_time']})")
-            
             # Giới hạn số troops spawn mỗi frame để tránh lag
             if spawned_count >= 3:
                 break
@@ -412,7 +402,6 @@ class GameController(Subject, Observer):
         # Update troops list notification nếu có troops mới
         if spawned_count > 0:
             self.notify("troops_updated", {"troops": self._troops})
-            print(f"Spawned {spawned_count} troops this frame, {len(self._spawn_queue)} remaining in queue")
     
     # Formation calculation removed - troops spawn directly to target now
     
