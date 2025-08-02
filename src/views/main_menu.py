@@ -7,6 +7,7 @@ from typing import Optional
 from ..views.ui_view import UIView
 from ..utils.constants import Colors, GameSettings, SCREEN_WIDTH, SCREEN_HEIGHT
 from ..utils.image_manager import ImageManager
+from src.utils.sound_manager import SoundManager
 
 class MainMenu(UIView):
     """

@@ -530,7 +530,7 @@ def main():
         pygame.display.set_caption("Tower War")
 
         from src.views.intro_view import show_intro
-        show_intro(screen, max_duration=5000)  # Loading tối đa 5 giây
+        show_intro(screen, max_duration=4000)  # Loading tối đa 4 giây
 
         game = TowerWarGame()
         # Don't start music here - let the game decide based on state

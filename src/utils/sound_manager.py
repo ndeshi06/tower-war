@@ -186,3 +186,11 @@ class SoundManager:
     def stop_all(self):
         pygame.mixer.stop()
         pygame.mixer.music.stop()
+
+    def play_music(self, music_path, volume=0.5, loop=True):
+        pygame.mixer.music.load(music_path)
+        pygame.mixer.music.set_volume(volume)
+        pygame.mixer.music.play(-1 if loop else 0)
+
+    def stop_music(self):
+        pygame.mixer.music.stop()
