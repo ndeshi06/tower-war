@@ -12,6 +12,7 @@ from ..models.troop import Troop, PlayerTroop, EnemyTroop
 from ..controllers.ai_controller import AIController
 from ..controllers.level_manager import LevelManager
 from ..utils.constants import OwnerType, GameState, GameSettings
+from ..utils.progression_manager import ProgressionManager
 
 class GameController(Subject, Observer):
     """
@@ -38,12 +39,15 @@ class GameController(Subject, Observer):
         self._game_state = GameState.PLAYING
         self._towers: List[Tower] = []
         self._troops: List[Troop] = []
-        self._selected_tower: Optional[Tower] = None
+        self._selected_towers: List[Tower] = []  # Đổi từ single tower thành list
         self._winner: Optional[str] = None
         self._game_ended = False  # Flag để tránh check win condition nhiều lần
         
         # Level management
         self._level_manager = LevelManager()
+        
+        # Progression manager for auto-save
+        self._progression_manager = ProgressionManager()
         
         # Controllers
         self._ai_controller = AIController('medium')
@@ -53,6 +57,10 @@ class GameController(Subject, Observer):
         self._game_start_time = pygame.time.get_ticks()
         self._player_actions = 0
         self._total_battles = 0
+        
+        # Auto-save timer
+        self._last_auto_save = pygame.time.get_ticks()
+        self._auto_save_interval = 10000  # Auto-save every 10 seconds
         
         # Troop spawning system
         self._spawn_queue = []  # Queue of troops waiting to spawn
@@ -108,18 +116,24 @@ class GameController(Subject, Observer):
         safe_bottom = base_height * (1 - bottom_margin_percent)
         available_height = safe_bottom - margin_y
         
-        # Player side (far left)
+        # Player side (far left) - Support more towers
         player_x = margin_x
         player_positions = [
-            (player_x, margin_y + available_height * 0.25),  # Upper player tower
-            (player_x, margin_y + available_height * 0.75)   # Lower player tower
+            (player_x, margin_y + available_height * 0.2),   # Upper player tower
+            (player_x, margin_y + available_height * 0.5),   # Middle player tower
+            (player_x, margin_y + available_height * 0.8)    # Lower player tower
         ]
         
-        # Enemy side (far right)
+        # Enemy side (far right) - Support more towers
         enemy_x = base_width - margin_x
+        enemy_x_alt = base_width - margin_x * 1.8  # Second column for more towers
         enemy_positions = [
-            (enemy_x, margin_y + available_height * 0.25),   # Upper enemy tower
-            (enemy_x, margin_y + available_height * 0.75)    # Lower enemy tower
+            (enemy_x, margin_y + available_height * 0.15),   # Upper enemy tower
+            (enemy_x, margin_y + available_height * 0.4),    # Middle enemy tower  
+            (enemy_x, margin_y + available_height * 0.65),   # Lower enemy tower
+            (enemy_x, margin_y + available_height * 0.85),   # Bottom enemy tower
+            (enemy_x_alt, margin_y + available_height * 0.25), # Alt column upper
+            (enemy_x_alt, margin_y + available_height * 0.75)  # Alt column lower
         ]
         
         # Neutral towers (distributed in middle area for better gameplay)
@@ -161,8 +175,17 @@ class GameController(Subject, Observer):
     
     @property
     def selected_tower(self) -> Optional[Tower]:
-        """Getter cho selected tower"""
-        return self._selected_tower
+        """Getter cho selected tower - trả về tower đầu tiên để backward compatibility"""
+        return self._selected_towers[0] if self._selected_towers else None
+    
+    @property
+    def selected_towers(self) -> List[Tower]:
+        """Getter cho selected towers list"""
+        return self._selected_towers.copy()
+    
+    def get_selected_tower_count(self) -> int:
+        """Lấy số lượng towers được chọn"""
+        return len(self._selected_towers)
     
     @property
     def winner(self) -> Optional[str]:
@@ -208,7 +231,8 @@ class GameController(Subject, Observer):
                 # Hide level complete dialog
                 self.notify("level_started", {
                     "level": self._level_manager.current_level,
-                    "level_info": self._level_manager.get_level_info()
+                    "level_info": self._level_manager.get_level_info(),
+                    "progress": self._level_manager.get_progress()
                 })
             elif key == pygame.K_r:
                 # Restart from level 1
@@ -222,7 +246,7 @@ class GameController(Subject, Observer):
         self._towers.clear()
         self._troops.clear()
         self._spawn_queue.clear()  # Clear spawn queue
-        self._selected_tower = None
+        self._selected_towers.clear()  # Clear selected towers
         self._winner = None
         
         # Reset statistics cho level mới
@@ -267,32 +291,96 @@ class GameController(Subject, Observer):
             pass  # AI action taken, no specific handling needed
     
     def _handle_tower_click(self, tower: Tower, position: Tuple[float, float]):
-        """Xử lý click vào tower"""
+        """Xử lý click vào tower với multi-selection support"""
         if self._game_state != GameState.PLAYING:
             return
         
-        if self._selected_tower is None:
-            # Chọn tower nếu là player tower và có quân
-            if tower.owner == OwnerType.PLAYER and tower.can_send_troops():
-                self._selected_tower = tower
-                tower.selected = True
-                self._player_actions += 1
+        # Nếu tower không phải player tower hoặc không có quân, không thể chọn
+        if tower.owner != OwnerType.PLAYER or not tower.can_send_troops():
+            # Nếu có towers được chọn và click vào tower khác màu
+            if self._selected_towers and tower.owner != OwnerType.PLAYER:
+                self._send_troops_from_selected(tower)
+                self._deselect_all_towers()
+            return
+        
+        # Click vào player tower
+        if tower in self._selected_towers:
+            # Click lần 2 vào tower đã chọn - bỏ chọn tower đó
+            self._deselect_tower(tower)
         else:
-            # Gửi quân nếu click vào tower khác
-            if tower != self._selected_tower:
-                self._send_troops(self._selected_tower, tower)
-            
-            # Deselect tower
-            self._deselect_tower()
+            # Nếu chưa có tower nào được chọn hoặc tower cùng màu
+            if not self._selected_towers or all(t.owner == tower.owner for t in self._selected_towers):
+                # Thêm tower vào selection
+                self._select_tower(tower)
+            else:
+                # Click vào tower khác màu - gửi quân từ tất cả towers được chọn
+                self._send_troops_from_selected(tower)
+                self._deselect_all_towers()
+        
+        self._player_actions += 1
+    
+    def _select_tower(self, tower: Tower):
+        """Chọn một tower"""
+        if tower not in self._selected_towers:
+            self._selected_towers.append(tower)
+            tower.selected = True
+            print(f"Selected tower at ({tower.x}, {tower.y}). Total selected: {len(self._selected_towers)}")
+    
+    def _deselect_tower(self, tower: Tower):
+        """Bỏ chọn một tower cụ thể"""
+        if tower in self._selected_towers:
+            self._selected_towers.remove(tower)
+            tower.selected = False
+            print(f"Deselected tower at ({tower.x}, {tower.y}). Total selected: {len(self._selected_towers)}")
+    
+    def _deselect_all_towers(self):
+        """Bỏ chọn tất cả towers"""
+        for tower in self._selected_towers:
+            tower.selected = False
+        self._selected_towers.clear()
+        print("Deselected all towers")
+    
+    def _send_troops_from_selected(self, target: Tower):
+        """Gửi quân từ tất cả towers được chọn đến target tower với staggered timing"""
+        if not self._selected_towers:
+            return
+        
+        total_troops_sent = 0
+        base_delay = 0  # Base delay for first tower
+        
+        for i, source_tower in enumerate(self._selected_towers):
+            if source_tower.can_send_troops():
+                troops_count = source_tower.send_troops(target)
+                if troops_count > 0:
+                    # Use delayed spawn với reduced delay cho mỗi tower
+                    tower_delay = i * 100  # Giảm từ 200ms xuống 100ms
+                    self._create_delayed_troop_spawn(
+                        source_tower.x, source_tower.y,
+                        target.x, target.y,
+                        troops_count,
+                        OwnerType.PLAYER,
+                        tower_delay,
+                        "multi_tower_attack"  # Action type để có spacing phù hợp
+                    )
+                    total_troops_sent += troops_count
+                    print(f"Sending {troops_count} troops from ({source_tower.x}, {source_tower.y}) to ({target.x}, {target.y}) with {tower_delay}ms delay")
+        
+        if total_troops_sent > 0:
+            # Notify observers về troops creation
+            self.notify("troops_spawn_started", {
+                "count": total_troops_sent,
+                "sources": self._selected_towers,
+                "target": target
+            })
+            print(f"Total troops sent: {total_troops_sent} from {len(self._selected_towers)} towers")
     
     def _send_troops(self, source: Tower, target: Tower):
-        """Gửi quân từ source đến target với individual troops spawning gradually"""
+        """Legacy method - gửi quân từ source đến target (giữ lại để backward compatibility)"""
         if source.owner != OwnerType.PLAYER:
             return
         
         troops_count = source.send_troops(target)
         if troops_count > 0:
-            # Tạo spawn queue thay vì spawn tất cả cùng lúc
             self._create_troop_spawn_queue(
                 source.x, source.y, 
                 target.x, target.y,
@@ -332,10 +420,10 @@ class GameController(Subject, Observer):
         # Tạo unique formation_id để nhóm troops cùng formation
         formation_id = f"{owner}_{start_x}_{start_y}_{target_x}_{target_y}_{current_time}"
         
-        # Tạo spawn queue entries với timing không conflicts
+        # Tạo spawn queue entries với timing không conflicts và better spacing
         for i in range(count):
-            # Fixed delay 200ms giữa mỗi troop để spacing rõ ràng hơn
-            spawn_delay = i * 200  # 200ms = 0.2 giây delay để spacing rõ ràng
+            # Tăng thời gian để troops xa nhau hơn
+            spawn_delay = i * 250  # Tăng từ 150ms lên 250ms để troops xa nhau nhiều hơn
 
             spawn_entry = {
                 'x': start_x,  # Spawn từ tower position
@@ -349,8 +437,48 @@ class GameController(Subject, Observer):
             }
             
             self._spawn_queue.append(spawn_entry)
+    
+    def _create_delayed_troop_spawn(self, start_x: float, start_y: float, 
+                                  target_x: float, target_y: float, 
+                                  count: int, owner: str, delay_ms: int = 0, action_type: str = "standard"):
+        """Tạo spawn queue với delay cho multi-tower coordination"""
+        if count <= 0:
+            return
+        
+        # Base time với delay
+        current_time = pygame.time.get_ticks() + delay_ms
+        
+        # Tìm thời gian spawn cuối cùng từ cùng tower
+        last_spawn_time = current_time
+        tower_entries = [entry for entry in self._spawn_queue 
+                        if abs(entry['x'] - start_x) < 5 and abs(entry['y'] - start_y) < 5 
+                        and entry['owner'] == owner]
+        
+        if tower_entries:
+            last_spawn_time = max(entry['spawn_time'] for entry in tower_entries)
+            last_spawn_time = max(last_spawn_time + 50, current_time)  # Ensure delay is respected
+        
+        # Tạo unique formation_id
+        formation_id = f"{owner}_{start_x}_{start_y}_{target_x}_{target_y}_{current_time}_{delay_ms}"
+        
+        # Tạo spawn queue entries với spacing được cải thiện
+        for i in range(count):
+            # Tăng spacing cho player troops để giống enemy troops
+            spawn_delay = i * 250  # Tăng từ 150ms lên 250ms để player troops xa nhau như enemy
+
+            spawn_entry = {
+                'x': start_x,
+                'y': start_y,
+                'target_x': target_x,
+                'target_y': target_y,
+                'owner': owner,
+                'spawn_time': last_spawn_time + spawn_delay,
+                'formation_id': formation_id,
+                'formation_index': i,
+                'coordinated': True  # Mark as coordinated attack
+            }
             
-        # Sort spawn queue theo thời gian để đảm bảo thứ tự đúng
+            self._spawn_queue.append(spawn_entry)        # Sort spawn queue theo thời gian để đảm bảo thứ tự đúng
         self._spawn_queue.sort(key=lambda x: x['spawn_time'])
         
     def _process_spawn_queue(self):
@@ -365,17 +493,22 @@ class GameController(Subject, Observer):
         while self._spawn_queue and current_time >= self._spawn_queue[0]['spawn_time']:
             spawn_entry = self._spawn_queue[0]
             
-            # Spawn troop trực tiếp từ tower đến target
+            # Simple spawn: tất cả troops spawn từ tower position
+            # Không cần formation phức tạp, để troops tự tạo formation khi di chuyển
+            spawn_x = spawn_entry['x']
+            spawn_y = spawn_entry['y']
+            
+            # Spawn troop trực tiếp từ tower position
             if spawn_entry['owner'] == OwnerType.PLAYER:
                 troop = PlayerTroop(
-                    spawn_entry['x'], spawn_entry['y'],  # Start at tower
-                    spawn_entry['target_x'], spawn_entry['target_y'],   # Move directly to target
+                    spawn_x, spawn_y,
+                    spawn_entry['target_x'], spawn_entry['target_y'],
                     1  # Individual troop
                 )
             else:
                 troop = EnemyTroop(
-                    spawn_entry['x'], spawn_entry['y'],  # Start at tower
-                    spawn_entry['target_x'], spawn_entry['target_y'],   # Move directly to target
+                    spawn_x, spawn_y,
+                    spawn_entry['target_x'], spawn_entry['target_y'],
                     1  # Individual troop
                 )
             
@@ -395,8 +528,8 @@ class GameController(Subject, Observer):
                 "owner": spawn_entry['owner']
             })
             
-            # Giới hạn số troops spawn mỗi frame để tránh lag
-            if spawned_count >= 3:
+            # Giới hạn số troops spawn mỗi frame để tránh lag nhưng không quá chậm
+            if spawned_count >= 5:  # Tăng từ 3 lên 5
                 break
         
         # Update troops list notification nếu có troops mới
@@ -457,14 +590,12 @@ class GameController(Subject, Observer):
         if clicked_tower:
             clicked_tower.on_click(position)
         else:
-            # Click vào empty space, deselect
-            self._deselect_tower()
+            # Click vào empty space, deselect all
+            self._deselect_all_towers()
     
-    def _deselect_tower(self):
-        """Deselect current tower"""
-        if self._selected_tower:
-            self._selected_tower.selected = False
-            self._selected_tower = None
+    def _deselect_tower_legacy(self):
+        """Legacy method - deselect current tower (giữ lại để backward compatibility)"""
+        self._deselect_all_towers()
     
     def update(self, dt: float):
         """
@@ -472,6 +603,9 @@ class GameController(Subject, Observer):
         """
         if self._game_state != GameState.PLAYING:
             return
+        
+        # Check auto-save
+        self.check_auto_save()
         
         # Process spawn queue
         self._process_spawn_queue()
@@ -483,17 +617,41 @@ class GameController(Subject, Observer):
         # Update troops và handle arrivals
         self._update_troops(dt)
         
-        # AI actions
+        # AI actions with multi-tower support
         ai_action = self._ai_controller.execute_action(self._towers)
         if ai_action:
-            # AI cũng sử dụng spawn queue system
-            self._create_troop_spawn_queue(
-                ai_action['source'].x, ai_action['source'].y,
-                ai_action['target'].x, ai_action['target'].y,
-                ai_action['troops_count'],
-                OwnerType.ENEMY
-            )
-            print(f"AI Action: Enemy gửi {ai_action['troops_count']} quân từ ({ai_action['source'].x:.0f}, {ai_action['source'].y:.0f}) đến ({ai_action['target'].x:.0f}, {ai_action['target'].y:.0f})")
+            action_type = ai_action.get('action_type', 'single_attack')
+            
+            if action_type in ['coordinated_assault', 'strategic_expansion', 'defensive_consolidation', 'multi_attack']:
+                # Handle multi-tower actions
+                attacks = ai_action.get('attacks', [])
+                target = ai_action.get('target')
+                total_troops = ai_action.get('total_troops', 0)
+                
+                print(f"AI Multi-Action ({action_type}): {len(attacks)} towers sending {total_troops} troops to ({target.x:.0f}, {target.y:.0f})")
+                
+                # Create troop spawns for each attack with slight delays
+                for i, attack in enumerate(attacks):
+                    delay = i * 150  # 150ms delay between each attack wave
+                    self._create_delayed_troop_spawn(
+                        attack['source'].x, attack['source'].y,
+                        attack['target'].x, attack['target'].y,
+                        attack['troops_count'],
+                        OwnerType.ENEMY,
+                        delay,
+                        action_type  # Pass action_type để có spacing phù hợp
+                    )
+            
+            elif action_type in ['single_attack', 'opportunistic_strike']:
+                # Handle single tower actions (legacy support)
+                if 'source' in ai_action and 'target' in ai_action:
+                    self._create_troop_spawn_queue(
+                        ai_action['source'].x, ai_action['source'].y,
+                        ai_action['target'].x, ai_action['target'].y,
+                        ai_action['troops_count'],
+                        OwnerType.ENEMY
+                    )
+                    print(f"AI Single Action: Enemy sends {ai_action['troops_count']} troops from ({ai_action['source'].x:.0f}, {ai_action['source'].y:.0f}) to ({ai_action['target'].x:.0f}, {ai_action['target'].y:.0f})")
         
         # Check win condition
         self._check_win_condition()
@@ -739,6 +897,9 @@ class GameController(Subject, Observer):
                 has_next_level = self._level_manager.complete_current_level()
                 completed_level = self._level_manager.current_level
                 
+                # Save game state immediately when level is completed
+                self.save_game_state()
+                
                 self._game_state = GameState.LEVEL_COMPLETE
                 self.notify("level_complete", {
                     "winner": winner,
@@ -748,6 +909,10 @@ class GameController(Subject, Observer):
             else:
                 # Player thua
                 self._level_manager.reset_to_level_1()
+                
+                # Save game state when player loses (reset to level 1)
+                self.save_game_state()
+                
                 self._game_state = GameState.GAME_OVER
                 
                 # Chỉ notify game_over khi player thua
@@ -785,7 +950,7 @@ class GameController(Subject, Observer):
         self._towers.clear()
         self._troops.clear()
         self._spawn_queue.clear()  # Clear spawn queue
-        self._selected_tower = None
+        self._selected_towers.clear()  # Clear selected towers
         self._winner = None
         self._game_ended = False  # Reset flag
         
@@ -793,6 +958,9 @@ class GameController(Subject, Observer):
         self._game_start_time = pygame.time.get_ticks()
         self._player_actions = 0
         self._total_battles = 0
+        
+        # Reset auto-save timer
+        self._last_auto_save = pygame.time.get_ticks()
         
         # Setup AI theo level
         self._ai_controller.set_difficulty(level_config['ai_difficulty'])
@@ -804,6 +972,9 @@ class GameController(Subject, Observer):
         # Reset AI
         self._ai_controller.reset_stats()
         
+        # Save initial game state after restart
+        self.save_game_state()
+        
         # Notify observers về state change nếu cần
         if old_state != GameState.PLAYING:
             self.notify("game_state_changed", {
@@ -814,7 +985,8 @@ class GameController(Subject, Observer):
         # Notify observers về restart
         self.notify("game_restarted", {
             "level": self._level_manager.current_level,
-            "level_info": level_config['name']
+            "level_info": self._level_manager.get_level_info(),
+            "progress": self._level_manager.get_progress()
         })
         self.notify("towers_updated", {"towers": self._towers})
         self.notify("troops_updated", {"troops": self._troops})
@@ -910,6 +1082,52 @@ class GameController(Subject, Observer):
     def set_ai_difficulty(self, difficulty: str):
         """Thay đổi độ khó AI"""
         self._ai_controller.set_difficulty(difficulty)
+    
+    def save_game_state(self):
+        """Save current game state"""
+        try:
+            game_data = {
+                'current_level': self._level_manager.current_level,
+                'levels_completed': list(self._level_manager.levels_completed),
+                'towers': [],
+                'troops': []
+            }
+            
+            # Save tower states
+            for tower in self._towers:
+                tower_data = {
+                    'x': tower.x,
+                    'y': tower.y,
+                    'owner': tower.owner,
+                    'troops': tower.troops
+                }
+                game_data['towers'].append(tower_data)
+            
+            # Save troop states
+            for troop in self._troops:
+                troop_data = {
+                    'x': troop.x,
+                    'y': troop.y,
+                    'owner': troop.owner,
+                    'count': getattr(troop, 'count', 1),
+                    'target_position': [troop.target_x, troop.target_y],
+                    'is_dead': getattr(troop, 'is_dead', False)
+                }
+                game_data['troops'].append(troop_data)
+            
+            self._progression_manager.save(game_data)
+            print(f"Game state saved at level {self._level_manager.current_level}")
+            
+        except Exception as e:
+            print(f"Error saving game state: {e}")
+    
+    def check_auto_save(self):
+        """Check if auto-save should be triggered"""
+        current_time = pygame.time.get_ticks()
+        if current_time - self._last_auto_save >= self._auto_save_interval:
+            if self._game_state == GameState.PLAYING:  # Only auto-save during gameplay
+                self.save_game_state()
+                self._last_auto_save = current_time
     
     def __str__(self) -> str:
         """String representation của game controller"""

@@ -12,7 +12,7 @@ class LevelManager:
     
     def __init__(self):
         self.current_level = 1
-        self.max_level = 3
+        self.max_level = 3  # Changed back to 3 levels
         self.levels_completed = set()
         
         # Level configurations

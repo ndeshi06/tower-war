@@ -4,7 +4,8 @@ import os
 class ProgressionManager:
     def __init__(self, save_path=None):
         if save_path is None:
-            save_path = os.path.join(os.path.dirname(__file__), '../../progression_save.json')
+            from .path_utils import get_save_path
+            save_path = get_save_path()
         self.save_path = save_path
 
     def save(self, data):

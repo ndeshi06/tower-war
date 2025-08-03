@@ -74,9 +74,13 @@ Chiếm tất cả các tower trên bản đồ để giành chiến thắng.
    - Giới hạn tối đa: 50 quân/tower
 
 3. **Điều khiển:**
-   - Click vào tower xanh của bạn để chọn
-   - Click vào tower khác để gửi quân tấn công
-   - Mỗi lần gửi sẽ chuyển một nửa số quân hiện có
+   - Click vào tower xanh của bạn để chọn (có thể chọn nhiều tower cùng màu)
+   - Click vào tower cùng màu khác để thêm vào selection
+   - Click vào tower đã chọn lần nữa để bỏ chọn
+   - Click vào tower khác màu để gửi quân từ tất cả towers được chọn
+   - Click vào không gian trống để bỏ chọn tất cả
+   - Khi chọn tower sẽ hiển thị đường đi preview đến vị trí chuột
+   - Mỗi lần gửi sẽ chuyển một nửa số quân hiện có từ mỗi tower được chọn
 
 4. **Chiến đấu:**
    - Khi quân đến tower cùng phe: Số quân tower tăng lên
@@ -121,6 +125,8 @@ Game có 3 level với độ khó tăng dần:
 
 ## Cài đặt và chạy
 
+### Chạy từ Source Code
+
 1. Cài đặt pygame:
 ```bash
 pip install pygame
@@ -131,10 +137,37 @@ pip install pygame
 python main.py
 ```
 
+### Build Executable (EXE)
+
+Để tạo file EXE độc lập không cần cài đặt Python:
+
+1. Cài đặt cx_Freeze:
+```bash
+pip install cx-Freeze
+```
+
+2. Build EXE:
+```bash
+python setup.py build
+```
+
+3. File EXE sẽ được tạo trong thư mục `build/`:
+   - Tìm file `TowerWar.exe` trong thư mục build để chạy
+   - Copy toàn bộ thư mục build để chạy trên máy khác
+   - Không cần cài đặt Python trên máy đích
+
+4. **Lưu ý khi build:**
+   - Đảm bảo tất cả file assets (images, sounds) được include
+   - File EXE có thể khá lớn (50-100MB) do chứa Python runtime
+   - Chạy build trên Windows để tạo EXE cho Windows
+
 ## 🎮 Điều khiển nâng cao
 
 ### Game Controls
-- **Click chuột trái**: Chọn tower và gửi quân
+- **Click chuột trái**: 
+  - Chọn/bỏ chọn tower (có thể chọn nhiều tower cùng màu)
+  - Gửi quân từ towers được chọn đến tower khác màu
+  - Preview đường đi hiển thị khi di chuyển chuột
 - **ESC/SPACE**: Pause/Resume game với pause menu
 - **F11**: Fullscreen mode với proper scaling
 
@@ -163,9 +196,9 @@ python main.py
 ### Progression & Save System
 
 - **Tính năng Save/Progression:**
-  - Game sẽ tự động lưu tiến trình của bạn sau mỗi level hoặc khi thoát game.
+  - Game sẽ tự động lưu tiến trình của bạn song song với tiến trình game.
   - Khi mở lại game, bạn có thể tiếp tục từ level cuối cùng đã hoàn thành bằng nút **CONTINUE** trên main menu.
-  - Tiến trình được lưu trong file `progression_save.json` (file này sẽ tự động bị bỏ qua khi commit lên git).
+  - Tiến trình được lưu trong file `progression_save.json`.
   - Nếu muốn chơi lại từ đầu, chọn **NEW GAME** để reset tiến trình về level 1.
   - Hệ thống save giúp bạn không bị mất tiến độ khi thoát game hoặc tắt máy.
 

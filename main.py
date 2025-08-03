@@ -98,7 +98,11 @@ class TowerWarGame(Observer):
         # Music
         from src.utils.sound_manager import SoundManager
         self.sound_manager = SoundManager()
-        self.sound_manager.preload()
+        try:
+            self.sound_manager.preload()
+        except Exception as e:
+            # Continue without sound if there's an error
+            pass
 
     def start_game(self, level=1):
         """Khởi tạo game components với level cụ thể"""
@@ -202,6 +206,13 @@ class TowerWarGame(Observer):
             winner = data.get('winner')
             level = data.get('level', self.current_level)
             has_next = data.get('has_next_level', False)
+            
+            # Save progression khi hoàn thành level
+            if winner == OwnerType.PLAYER and has_next:
+                # Lưu level tiếp theo để player có thể continue từ đó
+                self.current_level = level + 1
+                self.save_progression()
+            
             self.show_result(winner, level, has_next)
         
         elif event_type == "game_over":
@@ -216,9 +227,12 @@ class TowerWarGame(Observer):
         """
         # Start appropriate music based on initial state
         if self.app_state == "menu":
-            if (not self.sound_manager.is_music_playing() or 
-                self.sound_manager.get_current_music_file() != "background_music.mp3"):
-                self.sound_manager.play_background_music()
+            try:
+                if (not self.sound_manager.is_music_playing() or 
+                    self.sound_manager.get_current_music_file() != "background_music.mp3"):
+                    self.sound_manager.play_background_music()
+            except Exception as e:
+                pass
         
         try:
             while self.running:
@@ -235,8 +249,14 @@ class TowerWarGame(Observer):
                     import traceback
                     traceback.print_exc()
                     self.running = False
+        except Exception as e:
+            import traceback
+            traceback.print_exc()
         finally:
-            self.save_progression()
+            try:
+                self.save_progression()
+            except Exception as e:
+                pass
             self._cleanup()
     
     def _handle_events(self):
@@ -304,15 +324,18 @@ class TowerWarGame(Observer):
                     self._handle_mouse_motion(scaled_event)
 
     def load_progression(self):
-        """Tải tiến trình đã lưu và chuyển sang màn hình chọn level, highlight level đã lưu"""
+        """Tải tiến trình đã lưu và bắt đầu game ở level đã lưu"""
         from src.utils.progression_manager import ProgressionManager
         pm = ProgressionManager()
         data = pm.load()
         if not data:
+            # Nếu không có data, chuyển về level select
+            self.show_level_select()
             return
-        # Lưu lại level đã lưu để highlight trong màn hình chọn level
-        self.current_level = data.get('current_level', 1)
-        self.show_level_select()
+        
+        # Lấy level đã lưu và bắt đầu game
+        saved_level = data.get('current_level', 1)
+        self.start_game(saved_level)
 
     def reset_progression(self):
         """Xóa file progression để bắt đầu game mới"""

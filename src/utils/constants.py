@@ -33,9 +33,9 @@ class GameSettings:
     TOWER_RADIUS = 30
     TOWER_MAX_TROOPS = 50 
     TOWER_GROWTH_RATE = 1
-    TROOP_SPEED = 100
+    TROOP_SPEED = 60
     TROOP_RADIUS = 12
-    AI_ACTION_INTERVAL = 2500  # milliseconds - tăng tốc độ phản hồi của AI
+    AI_ACTION_INTERVAL = 1500  # milliseconds - Giảm từ 2500 xuống 1500 để AI hành động nhanh hơn
     
     # Font sizes
     FONT_LARGE = 36
@@ -57,33 +57,33 @@ class GameState:
     LEVEL_COMPLETE = 'level_complete'
 
 class LevelConfig:
-    """Level configuration"""
+    """Level configuration với advanced AI difficulty scaling"""
     LEVEL_1 = {
-        'name': 'Level 1 - Easy',
+        'name': 'Level 1 - Easy Start',
         'ai_difficulty': 'easy',
         'player_towers': 3,
         'enemy_towers': 2,
         'neutral_towers': 2,
         'initial_troops': 20,
-        'enemy_initial_troops': 10 
+        'enemy_initial_troops': 8 
     }
     
     LEVEL_2 = {
-        'name': 'Level 2 - Medium', 
+        'name': 'Level 2 - Medium Challenge', 
         'ai_difficulty': 'medium',
         'player_towers': 2,
         'enemy_towers': 3,
-        'neutral_towers': 3,
+        'neutral_towers': 4, 
         'initial_troops': 25,
-        'enemy_initial_troops': 12 
+        'enemy_initial_troops': 15
     }
     
     LEVEL_3 = {
-        'name': 'Level 3 - Hard',
+        'name': 'Level 3 - Hard Battle',
         'ai_difficulty': 'hard',
         'player_towers': 2,
-        'enemy_towers': 4,
-        'neutral_towers': 2,
+        'enemy_towers': 3,
+        'neutral_towers': 6, 
         'initial_troops': 30,
-        'enemy_initial_troops': 20 
+        'enemy_initial_troops': 20
     }

@@ -55,12 +55,16 @@ class UIView(ABC):
     
     def draw_text_with_shadow(self, screen: pygame.Surface, text: str, 
                             pos: Tuple[int, int], color: Tuple[int, int, int],
-                            font: pygame.font.Font, shadow_offset: int = 2):
+                            font: pygame.font.Font, shadow_offset: int = 2, 
+                            shadow_color: Tuple[int, int, int] = None):
         """
         Vẽ text với shadow để dễ đọc hơn
         """
+        if shadow_color is None:
+            shadow_color = Colors.BLACK
+            
         # Draw shadow
-        shadow = font.render(text, True, Colors.BLACK)
+        shadow = font.render(text, True, shadow_color)
         shadow_pos = (pos[0] + shadow_offset, pos[1] + shadow_offset)
         screen.blit(shadow, shadow_pos)
         
@@ -121,8 +125,13 @@ class GameHUD(UIView, Observer):
         elif event_type == "game_restarted":
             self.instructions_visible = True
             self.level_info = data.get('level_info', '')
-            level_num = data.get('level', 1)
-            self.level_progress = f"Level {level_num}/3"
+            self.level_progress = data.get('progress', f"Level {data.get('level', 1)}/3")
+        elif event_type == "level_started":
+            self.level_info = data.get('level_info', '')
+            self.level_progress = data.get('progress', f"Level {data.get('level', 1)}/3")
+        elif event_type == "level_changed":
+            self.level_info = data.get('level_info', '')
+            self.level_progress = data.get('progress', f"Level {data.get('level', 1)}/3")
     
     def draw(self, screen: pygame.Surface):
         """Vẽ HUD"""
@@ -137,15 +146,31 @@ class GameHUD(UIView, Observer):
         pygame.draw.rect(screen, (240, 240, 240), hud_rect)
         pygame.draw.rect(screen, Colors.BLACK, hud_rect, 2)
         
-        # Title và Level info
+        # Title
         title_font = self.get_font(GameSettings.FONT_LARGE, bold=True)
         self.draw_text_with_shadow(screen, "TOWER WAR", (20, 10), Colors.BLUE, title_font)
         
-        # Level info
-        if self.level_info and self.level_progress:
-            level_font = self.get_font(GameSettings.FONT_MEDIUM, bold=True)
-            level_text = f"{self.level_progress} - {self.level_info}"
-            self.draw_text_with_shadow(screen, level_text, (300, 15), Colors.RED, level_font)
+        # Level info - display in top right corner with better visibility
+        if self.level_progress:
+            level_font = self.get_font(GameSettings.FONT_LARGE, bold=True)
+            
+            # Calculate right-aligned position
+            level_text = self.level_progress
+            level_surface = level_font.render(level_text, True, Colors.WHITE)
+            level_x = screen_width - level_surface.get_width() - 20
+            
+            # Background box for better visibility
+            bg_padding = 10
+            bg_width = level_surface.get_width() + bg_padding * 2
+            bg_height = 40  # Reduced height since no difficulty text
+            bg_rect = pygame.Rect(level_x - bg_padding, 10, bg_width, bg_height)
+            
+            # Draw background with border
+            pygame.draw.rect(screen, Colors.DARK_BLUE, bg_rect)
+            pygame.draw.rect(screen, Colors.WHITE, bg_rect, 2)
+            
+            # Draw level number with white text on dark background
+            self.draw_text_with_shadow(screen, level_text, (level_x, 15), Colors.WHITE, level_font, shadow_color=Colors.BLACK)
         
         # Instructions
         if self.instructions_visible:

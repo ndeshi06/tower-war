@@ -291,17 +291,31 @@ class Tower(GameObject, Clickable, Subject):
     
     def can_send_troops(self) -> bool:
         """Kiểm tra xem có thể gửi quân không"""
-        return self.__troops > 1 and self.__owner != OwnerType.NEUTRAL
+        result = self.__troops > 0 and self.__owner != OwnerType.NEUTRAL
+        print(f"Tower can_send_troops: troops={self.__troops}, owner={self.__owner}, result={result}")
+        return result
     
     def send_troops(self, target: 'Tower') -> int:
         """
         Gửi quân đến tower khác
         Trả về số quân được gửi
         """
+        print(f"Tower send_troops called: can_send={self.can_send_troops()}")
+        
         if not self.can_send_troops():
+            print(f"Tower send_troops: Cannot send troops")
             return 0
         
-        troops_to_send = self.__troops // 2
+        # Đảm bảo gửi ít nhất 1 troop, nhưng không gửi hết
+        troops_to_send = max(1, self.__troops // 2)
+        if troops_to_send >= self.__troops:
+            troops_to_send = self.__troops - 1  # Giữ lại ít nhất 1 troop
+        
+        if troops_to_send <= 0:
+            print(f"Tower send_troops: No troops to send (calculated {troops_to_send})")
+            return 0
+            
+        print(f"Tower send_troops: Sending {troops_to_send} troops, remaining {self.__troops - troops_to_send}")
         self.troops = self.__troops - troops_to_send
         
         # Notify observers

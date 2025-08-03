@@ -12,8 +12,7 @@ def show_intro(screen, max_duration=5000):
     # Import constants for reference resolution
     import sys
     import os
-    sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-    from src.utils.constants import SCREEN_WIDTH, SCREEN_HEIGHT
+    from ..utils.constants import SCREEN_WIDTH, SCREEN_HEIGHT
 
     # Font setup
     pygame.font.init()
@@ -33,7 +32,7 @@ def show_intro(screen, max_duration=5000):
     scale_factor = min(width / SCREEN_WIDTH, height / SCREEN_HEIGHT)
     title_font, percent_font, sub_font = get_scaled_fonts(scale_factor)
 
-    from src.utils.sound_manager import SoundManager
+    from ..utils.sound_manager import SoundManager
     sound_manager = SoundManager()
     sound_manager.play_intro_music()
     

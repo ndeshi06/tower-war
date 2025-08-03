@@ -85,8 +85,12 @@ class GameView(Observer):
         # Load background image
         from ..utils.image_manager import ImageManager
         from ..utils.animation_manager import AnimationManager
+        from ..utils.path_utils import get_animations_path
         self.image_manager = ImageManager()
-        self.animation_manager = AnimationManager(os.path.join(os.path.dirname(__file__), '..', '..', 'animations'))
+        
+        # Use path utilities for consistent path handling
+        animations_path = get_animations_path()
+        self.animation_manager = AnimationManager(animations_path)
         self.background_image = self.image_manager.get_image("background_game")
         
         # Scaling factor for consistent rendering
@@ -107,6 +111,10 @@ class GameView(Observer):
         # Visual effects
         self.selection_pulse_time = 0
         self.show_grid = False
+        
+        # Path preview for selected towers
+        self.mouse_pos = (0, 0)
+        self.show_path_preview = False
         
         # Level complete dialog
         self.show_level_complete_dialog = False
@@ -203,33 +211,24 @@ class GameView(Observer):
         
         elif event_type == "game_restarted":
             self.game_over_screen.update_observer(event_type, data)
+            self.hud.update_observer(event_type, data)  # Forward to HUD
             # Reset game view state
             self.game_state = GameState.PLAYING
             self.pause_menu.visible = False
             level_info = data.get('level_info', '')
             print(f"GameView: Game restarted - {level_info}")
         
-        elif event_type == "game_stats_updated":
-            self.hud.update_observer(event_type, data)
-        
-        # Forward pause/resume events to pause menu
-        elif event_type == "game_paused":
-            self.pause_menu.update_observer(event_type, data)
-            print("GameView: Game paused - showing pause menu")
-        
-        elif event_type == "game_resumed":
-            self.pause_menu.update_observer(event_type, data)
-            print("GameView: Game resumed - hiding pause menu")
-        
-        # Handle level started (ẩn level complete dialog)
         elif event_type == "level_started":
+            self.hud.update_observer(event_type, data)  # Forward to HUD
             self.game_state = GameState.PLAYING
             self.show_level_complete_dialog = False
             self.level_complete_data = None
             self._level_complete_surface = None  # Clear cached surface
             print(f"GameView: Level {data.get('level', '')} started - {data.get('level_info', '')}")
-            self.level_complete_data = None
-            print(f"GameView: Level {data.get('level', '')} started - {data.get('level_info', '')}")
+        
+        elif event_type == "level_changed":
+            self.hud.update_observer(event_type, data)  # Forward to HUD
+            print(f"GameView: Level changed - {data.get('level_info', '')}")
     
     def set_towers(self, towers: List[Tower]):
         """Update towers list"""
@@ -244,7 +243,8 @@ class GameView(Observer):
         self.hud.update_observer("game_stats_updated", stats)
     
     def update_mouse_position(self, pos):
-        """Update mouse position cho UI hover effects"""
+        """Update mouse position cho UI hover effects và path preview"""
+        self.mouse_pos = pos
         self.game_over_screen.update_mouse_pos(pos)
         self.pause_menu.update_mouse_pos(pos)
     
@@ -675,40 +675,92 @@ class GameView(Observer):
 
     def _draw_tower_connections(self):
         """
-        Draw connections từ selected tower đến các towers khác with proper scaling
+        Draw connections từ selected towers đến các towers khác và preview đến mouse position
         """
-        selected_tower = None
-        for tower in self.towers:
-            if tower.selected:
-                selected_tower = tower
-                break
+        selected_towers = [tower for tower in self.towers if tower.selected]
         
-        if selected_tower is None:
+        if not selected_towers:
             return
         
-        # Draw lines đến các towers khác
-        for tower in self.towers:
-            if tower != selected_tower and tower.active:
-                # Different colors based on ownership
-                if tower.owner == selected_tower.owner:
-                    line_color = Colors.GREEN
-                elif tower.owner == 'neutral':
-                    line_color = Colors.GRAY
-                else:
-                    line_color = Colors.RED
+        # Draw lines từ selected towers đến các towers khác
+        for selected_tower in selected_towers:
+            for tower in self.towers:
+                if tower != selected_tower and tower.active:
+                    # Different colors based on ownership
+                    if tower.owner == selected_tower.owner:
+                        line_color = Colors.GREEN
+                    elif tower.owner == 'neutral':
+                        line_color = Colors.GRAY
+                    else:
+                        line_color = Colors.RED
+                    
+                    # Scale positions for connections
+                    start_x = int(selected_tower.x * self.scale_factor)
+                    start_y = int(selected_tower.y * self.scale_factor)
+                    end_x = int(tower.x * self.scale_factor)
+                    end_y = int(tower.y * self.scale_factor)
+                    scaled_width = max(1, int(2 * self.scale_factor))
+                    scaled_dash = max(2, int(10 * self.scale_factor))
+                    
+                    # Draw dashed line with scaling
+                    self._draw_dashed_line(self.screen, line_color,
+                                         (start_x, start_y),
+                                         (end_x, end_y), scaled_width, scaled_dash)
+        
+        # Draw preview lines từ selected towers đến mouse position
+        if selected_towers and hasattr(self, 'mouse_pos'):
+            mouse_x, mouse_y = self.mouse_pos
+            
+            # Check if mouse is over any tower
+            mouse_over_tower = None
+            for tower in self.towers:
+                tower_x = int(tower.x * self.scale_factor)
+                tower_y = int(tower.y * self.scale_factor)
+                tower_radius = int(tower.radius * self.scale_factor)
                 
-                # Scale positions for connections
+                distance = ((mouse_x - tower_x) ** 2 + (mouse_y - tower_y) ** 2) ** 0.5
+                if distance <= tower_radius:
+                    mouse_over_tower = tower
+                    break
+            
+            # Determine preview line color
+            if mouse_over_tower:
+                # Mouse over a tower - show color based on tower ownership
+                if mouse_over_tower.owner == selected_towers[0].owner:
+                    preview_color = (0, 255, 0, 128)  # Green with alpha
+                elif mouse_over_tower.owner == 'neutral':
+                    preview_color = (255, 255, 0, 128)  # Yellow with alpha
+                else:
+                    preview_color = (255, 0, 0, 128)  # Red with alpha
+            else:
+                # Mouse in empty space
+                preview_color = (255, 255, 255, 80)  # White with low alpha
+            
+            # Draw preview lines từ tất cả selected towers đến mouse
+            for selected_tower in selected_towers:
                 start_x = int(selected_tower.x * self.scale_factor)
                 start_y = int(selected_tower.y * self.scale_factor)
-                end_x = int(tower.x * self.scale_factor)
-                end_y = int(tower.y * self.scale_factor)
-                scaled_width = max(1, int(2 * self.scale_factor))
-                scaled_dash = max(2, int(10 * self.scale_factor))
                 
-                # Draw dashed line with scaling
-                self._draw_dashed_line(self.screen, line_color,
-                                     (start_x, start_y),
-                                     (end_x, end_y), scaled_width, scaled_dash)
+                # Create surface with alpha for preview line
+                preview_surface = pygame.Surface((abs(mouse_x - start_x) + 10, abs(mouse_y - start_y) + 10), pygame.SRCALPHA)
+                preview_surface.set_alpha(128)
+                
+                # Calculate offset for drawing on preview surface
+                offset_x = min(start_x, mouse_x) - 5
+                offset_y = min(start_y, mouse_y) - 5
+                local_start_x = start_x - offset_x
+                local_start_y = start_y - offset_y
+                local_mouse_x = mouse_x - offset_x
+                local_mouse_y = mouse_y - offset_y
+                
+                # Draw preview line on alpha surface
+                pygame.draw.line(preview_surface, preview_color[:3], 
+                               (local_start_x, local_start_y), 
+                               (local_mouse_x, local_mouse_y), 
+                               max(1, int(3 * self.scale_factor)))
+                
+                # Blit alpha surface to main screen
+                self.screen.blit(preview_surface, (offset_x, offset_y))
     
     def _draw_dashed_line(self, surface: pygame.Surface, color, start_pos, end_pos, 
                          width: int = 1, dash_length: int = 5):

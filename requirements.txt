@@ -1,0 +1,2 @@
+pygame>=2.5.0
+cx-freeze>=6.15.0

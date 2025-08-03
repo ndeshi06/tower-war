@@ -26,7 +26,10 @@ class ImageManager:
             return
         
         self.images: Dict[str, pygame.Surface] = {}
-        self.image_folder = os.path.join(os.path.dirname(__file__), '..', '..', 'images')
+        
+        # Use path utilities for consistent path handling
+        from .path_utils import get_images_path
+        self.image_folder = get_images_path()
         self._initialized = True
     
     def load_image(self, filename: str, size: Optional[tuple] = None) -> Optional[pygame.Surface]:

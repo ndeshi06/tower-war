@@ -18,7 +18,10 @@ class SoundManager:
         pygame.mixer.init()  # Khởi tạo âm thanh
         pygame.mixer.set_num_channels(32)  # Tăng số channel để hỗ trợ nhiều sound cùng lúc
         self.sounds: Dict[str, pygame.mixer.Sound] = {}
-        self.sounds_folder = os.path.join(os.path.dirname(__file__), '..', '..', 'sounds')
+        
+        # Use path utilities for consistent path handling
+        from .path_utils import get_sounds_path
+        self.sounds_folder = get_sounds_path()
         
         # Volume và mute controls
         self._master_volume = 1.0
