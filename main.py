@@ -586,6 +586,8 @@ def main():
         
     try:
         pygame.init()
+        icon = pygame.image.load('images/icon.ico')
+        pygame.display.set_icon(icon)
         screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
         pygame.display.set_caption("Tower War")
 

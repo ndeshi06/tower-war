@@ -51,7 +51,8 @@ executables = [
     Executable(
         'main.py',
         base=base,
-        target_name='TowerWar.exe'
+        target_name='TowerWar.exe',
+        icon='images/icon.ico'
     )
 ]
 
