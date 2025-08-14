@@ -85,5 +85,5 @@ class LevelConfig:
         'enemy_towers': 3,
         'neutral_towers': 6, 
         'initial_troops': 30,
-        'enemy_initial_troops': 20
+        'enemy_initial_troops': 25
     }

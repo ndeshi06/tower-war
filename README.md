@@ -1,212 +1,110 @@
 # Tower War Game - OOP Edition
 
-Một game chiến thuật thời gian thực được phát triển bằng pygame Python với kiến trúc OOP hoàn chỉnh.
+**Nhóm phát triển: Group 6**
 
-## 🏗️ Kiến trúc OOP
+**Thành viên:**
+- Đỗ Đức Thịnh - 24127123
+- Châu Vũ Trung - 24127256
+- Võ Nguyên Khoa - 24127191
+- Trần Gia Phúc - 24127221
+---
 
-### Cấu trúc Project
+Game chiến thuật thời gian thực phát triển bằng Python (pygame), kiến trúc OOP, áp dụng nhiều design pattern hiện đại.
+
+## 🏗️ Kiến trúc & Cấu trúc Project
+
 ```
 src/
-├── models/          # Data models (MVC Pattern)
-│   ├── base.py      # Abstract classes và interfaces
-│   ├── tower.py     # Tower classes với inheritance
-│   └── troop.py     # Troop classes với polymorphism
-├── controllers/     # Game logic controllers
-│   ├── ai_controller.py    # AI với Strategy Pattern
-│   └── game_controller.py  # Main game logic với Singleton
-├── views/          # UI và rendering (MVC Pattern)
-│   ├── game_view.py    # Main game renderer
-│   └── ui_view.py      # UI components
-└── utils/
-    └── constants.py    # Game constants và enums
+├── models/          # Data models: Tower, Troop, base, interface
+├── controllers/     # Game logic: GameController (Singleton), AIController (Strategy)
+├── views/           # UI rendering: GameView, UIView, HUD, PauseMenu, GameOverScreen
+├── utils/           # Tiện ích: constants, sound_manager, progression_manager, animation_manager
 ```
 
-### Các tính chất OOP được áp dụng:
+- **MVC Pattern**: Model (models), View (views), Controller (controllers)
+- **Progression System**: Lưu tiến trình với `progression_save.json`
+- **Assets**: images/, sounds/, animations/
 
-#### 1. **Encapsulation (Đóng gói)**
-- Private attributes với `__` prefix
-- Properties với getter/setter
-- Validation trong constructors
-- Protected data access
+## 🔑 OOP & Design Patterns
 
-#### 2. **Inheritance (Kế thừa)**
-- `Tower` → `PlayerTower`, `EnemyTower`
-- `Troop` → `PlayerTroop`, `EnemyTroop`
-- `GameObject` → `Tower`, `Troop`
-- Abstract base classes
-
-#### 3. **Polymorphism (Đa hình)**
-- Method overriding (`get_color()`, `move()`)
-- Interface implementation
-- Duck typing với Abstract methods
-
-#### 4. **Abstraction (Trừu tượng)**
-- Abstract base classes (`GameObject`, `UIView`)
-- Interfaces (`Clickable`, `Movable`, `Drawable`)
-- Strategy Pattern cho AI behavior
-
-### Design Patterns được sử dụng:
-
-1. **MVC Pattern**: Model-View-Controller separation
-2. **Observer Pattern**: Event-driven architecture
-3. **Strategy Pattern**: AI behavior strategies
-4. **Singleton Pattern**: GameController
-5. **Factory Pattern**: Tower creation
-6. **Template Method Pattern**: Game loop structure
-7. **Facade Pattern**: Main game class
+- **Encapsulation**: Thuộc tính private/protected, getter/setter
+- **Inheritance**: 
+  - `GameObject` <|= `Tower` <|= `PlayerTower`, `EnemyTower`
+  - `GameObject` <|= `Troop` <|= `PlayerTroop`, `EnemyTroop`
+  - `UIView` <|= `GameHUD`, `GameOverScreen`, `PauseMenu`
+- **Polymorphism**: Override `draw()`, `update()`, `get_color()`
+- **Abstraction**: Abstract base (`GameObject`, `UIView`, `AIStrategy`, `Observer`, `Subject`)
+- **Singleton**: `GameController`
+- **Factory**: `TowerFactory` tạo các loại tower
+- **Observer**: Model/Controller notify View khi thay đổi
+- **Strategy**: AI thay đổi hành vi theo độ khó
+- **State**: `GameState` quản lý trạng thái game
+- **Composite**: `GameView` quản lý nhiều UI component
+- **Template Method**: `UIView` định nghĩa khung cho UI
 
 ## 🎮 Cách chơi
 
-### Mục tiêu
-Chiếm tất cả các tower trên bản đồ để giành chiến thắng.
+- **Mục tiêu**: Chiếm toàn bộ tower trên bản đồ để thắng.
+- **Tower xanh**: của bạn, **đỏ**: AI, **xám**: trung lập.
+- **Tăng quân**: Tower của bạn/AI tự tăng quân, trung lập không tăng.
+- **Điều khiển**: Click chọn/bỏ chọn tower, gửi quân, preview đường đi.
+- **Chiến đấu**: Quân đến tower khác phe sẽ trừ quân, <=0 thì đổi phe.
+- **Thắng**: Khi tất cả tower đỏ thành xanh. **Thua**: Ngược lại.
 
-### Luật chơi
+## 🎯 Hệ thống Level & Progression
 
-1. **Các loại Tower:**
-   - **Tower xanh**: Thuộc về người chơi
-   - **Tower đỏ**: Thuộc về kẻ thù (AI)
-   - **Tower xám**: Tower trung lập (chưa ai chiếm)
+- 3 level độ khó tăng dần, AI thông minh hơn ở level cao.
+- Hoàn thành level để mở khóa level tiếp theo.
+- Tiến trình lưu tự động, có thể tiếp tục bằng nút **CONTINUE**.
+- Reset tiến trình bằng **NEW GAME**.
 
-2. **Thông số Tower:**
-   - Mỗi tower có một số lượng quân nhất định
-   - Tower của player và enemy sẽ tự động tăng 1 quân mỗi giây
-   - Tower trung lập không tự động tăng quân
-   - Giới hạn tối đa: 50 quân/tower
+## ⚙️ Cài đặt & Chạy
 
-3. **Điều khiển:**
-   - Click vào tower xanh của bạn để chọn (có thể chọn nhiều tower cùng màu)
-   - Click vào tower cùng màu khác để thêm vào selection
-   - Click vào tower đã chọn lần nữa để bỏ chọn
-   - Click vào tower khác màu để gửi quân từ tất cả towers được chọn
-   - Click vào không gian trống để bỏ chọn tất cả
-   - Khi chọn tower sẽ hiển thị đường đi preview đến vị trí chuột
-   - Mỗi lần gửi sẽ chuyển một nửa số quân hiện có từ mỗi tower được chọn
+### Chạy từ Source
 
-4. **Chiến đấu:**
-   - Khi quân đến tower cùng phe: Số quân tower tăng lên
-   - Khi quân đến tower khác phe: Số quân tower giảm xuống
-   - Nếu số quân tower <= 0: Tower đổi màu theo phe tấn công
-
-5. **Điều kiện thắng thua:**
-   - Thắng: Khi tất cả towers đỏ đều thuộc về bạn (màu xanh)
-   - Thua: Khi tất cả towers xanh đều thuộc về AI (màu đỏ)
-
-## 🎯 Hệ thống Level
-
-Game có 3 level với độ khó tăng dần:
-
-### Level 1: Easy
-- **Player towers**: 3 towers (20 quân mỗi tower)
-- **Enemy towers**: 2 towers (10 quân mỗi tower)
-- **Neutral towers**: 2 towers
-- **AI Difficulty**: Easy
-- **Mục đích**: Làm quen với cách chơi cơ bản
-
-### Level 2: Medium
-- **Player towers**: 2 towers (25 quân mỗi tower)
-- **Enemy towers**: 3 towers (12 quân mỗi tower)
-- **Neutral towers**: 3 towers
-- **AI Difficulty**: Medium
-- **Mục đích**: Thực hành chiến thuật với AI thông minh hơn
-
-### Level 3: Hard
-- **Player towers**: 2 towers (30 quân mỗi tower)
-- **Enemy towers**: 4 towers (20 quân mỗi tower)
-- **Neutral towers**: 2 towers
-- **AI Difficulty**: Hard
-- **Mục đích**: Thử thách cuối cùng với AI khó nhất
-
-### Progression System
-- **Hoàn thành level**: Chiến thắng để mở khóa level tiếp theo
-- **Level complete dialog**: Hiển thị khi thắng, cho phép chuyển level
-- **Game result screen**: Thông tin chi tiết về kết quả
-- **Restart option**: Có thể chơi lại từ level 1 bất cứ lúc nào
-- **Duration tracking**: Hiển thị thời gian hoàn thành level
-
-## Cài đặt và chạy
-
-### Chạy từ Source Code
-
-1. Cài đặt pygame:
-```bash
-pip install pygame
-```
-
+1. Cài pygame:
+   ```
+   pip install pygame
+   ```
 2. Chạy game:
-```bash
-python main.py
-```
+   ```
+   python main.py
+   ```
 
-### Build Executable (EXE)
+### Build EXE (Windows)
 
-Để tạo file EXE độc lập không cần cài đặt Python:
+1. Cài cx_Freeze:
+   ```
+   pip install cx-Freeze
+   ```
+2. Build:
+   ```
+   python setup.py build
+   ```
+3. Chạy file `TowerWar.exe` trong thư mục build.
 
-1. Cài đặt cx_Freeze:
-```bash
-pip install cx-Freeze
-```
+> Đảm bảo copy đủ assets (images, sounds, animations) khi build.
 
-2. Build EXE:
-```bash
-python setup.py build
-```
+## 🕹️ Điều khiển & Tính năng UI
 
-3. File EXE sẽ được tạo trong thư mục `build/`:
-   - Tìm file `TowerWar.exe` trong thư mục build để chạy
-   - Copy toàn bộ thư mục build để chạy trên máy khác
-   - Không cần cài đặt Python trên máy đích
+- **Chuột trái**: Chọn/bỏ chọn/gửi quân
+- **ESC/SPACE**: Pause/Resume game
+- **F11**: Fullscreen
+- **Pause Menu**: Resume, Restart, Main Menu, Sound/Music toggle
+- **Settings Menu**: Điều chỉnh âm thanh, nhạc nền, tự động lưu preferences
+- **Level Select**: Chọn level từ menu
+- **Dynamic Scaling**: UI tự động scale, hỗ trợ mọi độ phân giải
 
-4. **Lưu ý khi build:**
-   - Đảm bảo tất cả file assets (images, sounds) được include
-   - File EXE có thể khá lớn (50-100MB) do chứa Python runtime
-   - Chạy build trên Windows để tạo EXE cho Windows
+## 💾 Save/Progression
 
-## 🎮 Điều khiển nâng cao
+- Tự động lưu tiến trình vào `progression_save.json`
+- Tiếp tục game từ level đã qua với **CONTINUE**
+- Chơi lại từ đầu với **NEW GAME**
 
-### Game Controls
-- **Click chuột trái**: 
-  - Chọn/bỏ chọn tower (có thể chọn nhiều tower cùng màu)
-  - Gửi quân từ towers được chọn đến tower khác màu
-  - Preview đường đi hiển thị khi di chuyển chuột
-- **ESC/SPACE**: Pause/Resume game với pause menu
-- **F11**: Fullscreen mode với proper scaling
+## 🧠 Chiến thuật gợi ý
 
-### Pause Menu Features
-- **Resume**: Tiếp tục game
-- **Restart**: Restart level hiện tại
-- **Main Menu**: Quay về main menu
-- **Sound Controls**: 
-  - **SFX**: Tắt/bật sound effects
-  - **MUSIC**: Tắt/bật background music
+- Phòng thủ tower mạnh, tấn công tower yếu, mở rộng bằng tower trung lập, tận dụng tăng quân theo thời gian.
 
-### Settings Menu
-- **Sound Settings**: Điều chỉnh âm thanh
-- **Music Settings**: Điều chỉnh nhạc nền
-- **Save Settings**: Tự động lưu preferences
+---
 
-### Level Navigation
-- **Level Select**: Chọn level từ main menu
-- **Progressive Unlock**: Mở khóa level theo tiến độ
-
-### Display Features
-- **Dynamic Scaling**: UI tự động scale theo screen size
-- **Fullscreen Support**: F11 toggle với aspect ratio preservation
-- **Responsive Design**: Hoạt động trên mọi resolution
-
-### Progression & Save System
-
-- **Tính năng Save/Progression:**
-  - Game sẽ tự động lưu tiến trình của bạn song song với tiến trình game.
-  - Khi mở lại game, bạn có thể tiếp tục từ level cuối cùng đã hoàn thành bằng nút **CONTINUE** trên main menu.
-  - Tiến trình được lưu trong file `progression_save.json`.
-  - Nếu muốn chơi lại từ đầu, chọn **NEW GAME** để reset tiến trình về level 1.
-  - Hệ thống save giúp bạn không bị mất tiến độ khi thoát game hoặc tắt máy.
-
-## Chiến thuật
-
-1. **Phòng thủ**: Giữ những tower quan trọng có nhiều quân
-2. **Tấn công**: Tập trung quân để chiếm tower yếu
-3. **Mở rộng**: Chiếm tower trung lập để tăng sức mạnh
-4. **Thời gian**: Tận dụng việc tower tự động tăng quân theo thời gian
-
-Chúc bạn chơi vui vẻ!
+Chúc bạn chơi vui vẻ và chinh phục mọi level của Tower War!
