@@ -230,56 +230,49 @@ Vấn đề đã được khắc phục! Lỗi xảy ra vì logic cũ có thể 
 ### 5. Prompt AI explanation
 **User Input**: "Hãy giải thích cách chơi của AI địch"
 
+
 **AI Output**:
-Dựa trên code AI controller, tôi sẽ giải thích cách hoạt động của AI địch trong game:
+Dựa trên code thực tế trong `src/controllers/ai_controller.py`, AI địch sử dụng các design pattern sau:
+- **Strategy Pattern**: Cho phép thay đổi thuật toán AI động theo độ khó (các class SmartStrategy, AggressiveStrategy, DefensiveStrategy đều kế thừa từ AIStrategy và được chọn qua factory method).
+- **Observer Pattern**: AIController kế thừa Observer và Subject, nhận sự kiện từ game (như tower_captured, game_started) để điều chỉnh hành vi.
 
-## Hệ thống AI có 3 mức độ khó:
+AI có 3 chiến lược chính:
 
-### 1. **Easy (DefensiveStrategy)**:
-- **Chiến thuật bảo thủ**: AI chỉ tấn công khi có ít nhất 5 quân trong tower
-- **Ưu tiên neutral towers**: AI sẽ chiếm neutral towers trước thay vì tấn công player
-- **Tốc độ chậm**: Hành động mỗi 4 giây
-- **Logic**: Tìm neutral tower gần nhất, nếu không có thì tấn công player tower yếu nhất
+#### 1. Easy/Medium/Hard (SmartStrategy)
+- Sử dụng class `SmartStrategy` cho cả 3 mức độ (easy, medium, hard) nhưng tham số khác nhau.
+- AI sẽ phân tích số lượng quân của mình và của người chơi để chọn chế độ chiến thuật: "aggressive", "defensive" hoặc "balanced".
+- Có thể thực hiện các hành động như: tấn công phối hợp nhiều tower (`coordinated_assault`), mở rộng chiếm neutral (`strategic_expansion`), phòng thủ (`defensive_consolidation`) hoặc tấn công cơ hội (`opportunistic_strike`).
+- Việc chọn hành động dựa trên tình hình thực tế (số quân, số tower, random, v.v.).
+- Độ khó càng cao thì AI càng phối hợp nhiều tower hơn, phạm vi tấn công xa hơn và hành động linh hoạt hơn.
 
-### 2. **Medium (SmartStrategy)**:
-- **Thích ứng tình hình**: AI thay đổi chiến thuật dựa trên tương quan sức mạnh
-- **Aggressive khi mạnh**: Nếu AI có >120% quân so với player → tấn công liên tục
-- **Defensive khi yếu**: Nếu AI có <80% quân so với player → tập trung bảo vệ
-- **Mixed strategy**: Khi cân bằng sức mạnh → kết hợp cả hai
-- **Tốc độ trung bình**: Hành động mỗi 3 giây
+#### 2. Nightmare (AggressiveStrategy)
+- Sử dụng class `AggressiveStrategy` cho độ khó nightmare.
+- Luôn ưu tiên tấn công nhanh, chọn tower mạnh nhất để tấn công target gần nhất hoặc yếu nhất.
+- Nếu không tìm được target tốt sẽ fallback sang tấn công bất kỳ mục tiêu nào gần nhất.
 
-### 3. **Hard (AggressiveStrategy)**:
-- **Tấn công liên tục**: AI tấn công ngay khi có >1 quân
-- **Chọn target gần nhất**: Ưu tiên tấn công tower gần để giảm thời gian di chuyển
-- **Tốc độ nhanh**: Hành động mỗi 2 giây
-- **Logic đơn giản**: Chọn tower mạnh nhất → tấn công target gần nhất
+#### Cơ chế hoạt động chung:
+- AI kiểm tra timer (action interval) để quyết định khi nào hành động.
+- Dựa vào strategy hiện tại (tùy theo độ khó) để quyết định action (gọi `decide_action`).
+- Action có thể là single attack hoặc phối hợp nhiều tower.
+- AI có thống kê số lần tấn công thành công/thất bại và tỉ lệ thành công.
 
-## Cơ chế hoạt động:
-
-1. **Action Interval**: AI kiểm tra có nên hành động không dựa trên timer
-2. **Strategy Pattern**: Mỗi difficulty sử dụng strategy khác nhau
-3. **Decision Making**: AI đánh giá towers có sẵn và chọn source + target optimal
-4. **Statistics Tracking**: AI theo dõi success rate và performance metrics
-
-## Ví dụ decision process của SmartStrategy:
+#### Ví dụ logic chọn hành động của SmartStrategy:
 ```python
-enemy_strength = sum(t.troops for t in enemy_towers)  
-player_strength = sum(t.troops for t in player_towers)
-
-if enemy_strength > player_strength * 1.2:
-    # AI mạnh hơn → aggressive: tấn công player tower yếu nhất
-    return aggressive_action()
-elif enemy_strength < player_strength * 0.8:  
-    # AI yếu hơn → defensive: chiếm neutral towers
-    return defensive_action()
-else:
-    # Cân bằng → mixed: random giữa aggressive và defensive
-    return mixed_action()
+def decide_action(self, enemy_towers, all_towers):
+    # ...
+    self._update_tactical_mode(enemy_towers, player_towers, neutral_towers)
+    action_type = self._analyze_situation(enemy_towers, player_towers, neutral_towers)
+    if action_type == "coordinated_assault":
+        return self._coordinated_assault(...)
+    elif action_type == "strategic_expansion":
+        return self._strategic_expansion(...)
+    elif action_type == "defensive_consolidation":
+        return self._defensive_consolidation(...)
+    else:
+        return self._opportunistic_strike(...)
 ```
 
-AI sẽ thông minh hơn ở mức Hard và có thể thích ứng tình huống ở mức Medium, tạo ra trải nghiệm chơi đa dạng cho người chơi.
-
-**Đánh giá**: Hữu ích, giải thích dễ hiểu, rất cần để hiểu logic của AI Controller.
+**Đánh giá**: Rất hữu ích, giải thích đúng với code thực tế. Việc hiểu rõ các strategy trong `ai_controller.py` giúp dễ dàng điều chỉnh độ khó, mở rộng AI hoặc debug hành vi AI trong game.
 
 ### 6. Prompt level system implementation
 **User Input**: "Hãy thêm hệ thống level với khoảng 2-3 level tăng dần mức độ khó, hiện tại chỉ có 1 level."
