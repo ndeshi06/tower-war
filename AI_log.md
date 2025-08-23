@@ -91,6 +91,17 @@
   - Dùng `ProgressionManager` đảm nhận việc ghi/đọc dữ liệu tiến trình ra file
   - Khi thắng level thì save lại, khi load game thì đọc lại
 
+### 11. Chưa có đồ họa cho các đối tượng
+- **Vấn đề**:
+  - Chưa có đồ họa cho các đối tượng: lính và tòa tháp
+  - Bản đồ đơn giản
+- **Giải pháp**:
+  - Dùng AI generate menu từ ảnh cơ sở
+  - Vẽ tay các đối tượng lính có tham khảo ý kiến AI
+  - Tải hình ảnh các map từ Internet
+  - Tải hình ảnh Tower từ Internet
+  - Tạo hiệu ứng đánh nhau từ AI
+
 ## Kết quả đạt được
 
 - Đã khắc phục các lỗi chạy chương trình chính
