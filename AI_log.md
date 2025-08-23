@@ -59,6 +59,38 @@
   - Thêm fallback font handling
   - Loại bỏ emoji/special characters
 
+### 8. Giao diện đơn điệu
+- **Vấn đề**:
+  - Giao diện còn đơn điệu, nhàm chán
+  - Không tạo cảm giác hứng thú khi chơi
+  - Không có sự chuyển tiếp liền mạch giữa các nút bấm cũng như các màn hình
+- **Giải pháp**:
+  - Thêm hiệu ứng animation giữa các nút bấm
+  - Thêm intro khi mới vào game
+  - Thêm hiệu ứng fade in/fade out giữa các màn hình
+ 
+### 9. Chưa có âm thanh cho game
+- **Vấn đề**:
+  - Không có âm thanh cho game
+  - Tạo cảm giác chán nản và không thu hút
+  - Thiếu sự sinh động khi điều quân cũng như giao tranh
+  - Khiến người chơi không thật sự tập trung vào game
+- **Giải pháp**:
+  - Thêm âm thanh nhạc nền nhẹ nhàng, ma mị
+  - Thêm âm thanh khi đang chơi tạo cảm giác hùng hồn, khí thế
+  - Thêm âm thanh ở các hiệu ứng nút bấm cũng như các màn hình
+ 
+### 10. Chưa có cơ chế lưu lại tiến trình game
+- **Vấn đề**:
+  - Khi chơi game nếu thoát ra sẽ phải chơi lại từ màn đầu
+  - Gây bất tiện khi đang chơi và bận công việc
+  - Không tạo cảm giác hứng thú
+- **Giải pháp**:
+  - Thêm cơ chế lưu lại tiến trình game
+  - Dùng LevelManager quyết định logic tiến trình
+  - Dùng ProgressionManager đảm nhận việc ghi/đọc dữ liệu tiến trình ra file
+  - Khi thắng level thì save lại, khi load game thì đọc lại
+
 ## Kết quả đạt được
 
 - Đã khắc phục các lỗi chạy chương trình chính
