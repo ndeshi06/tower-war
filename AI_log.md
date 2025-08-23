@@ -87,8 +87,8 @@
   - Không tạo cảm giác hứng thú
 - **Giải pháp**:
   - Thêm cơ chế lưu lại tiến trình game
-  - Dùng LevelManager quyết định logic tiến trình
-  - Dùng ProgressionManager đảm nhận việc ghi/đọc dữ liệu tiến trình ra file
+  - Dùng `LevelManager` quyết định logic tiến trình
+  - Dùng `ProgressionManager` đảm nhận việc ghi/đọc dữ liệu tiến trình ra file
   - Khi thắng level thì save lại, khi load game thì đọc lại
 
 ## Kết quả đạt được
