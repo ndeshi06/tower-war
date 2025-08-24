@@ -100,6 +100,7 @@ class GameView(Observer):
         self.hud = GameHUD()
         self.game_over_screen = GameOverScreen()
         self.pause_menu = PauseMenu()
+        self.pause_menu_visible = False
         
         # Game state
         self.game_state = GameState.PLAYING
@@ -273,10 +274,12 @@ class GameView(Observer):
     def show_pause_menu(self):
         """Show pause menu"""
         self.pause_menu.visible = True
+        self.pause_menu_visible = True
     
     def hide_pause_menu(self):
         """Hide pause menu"""
         self.pause_menu.visible = False
+        self.pause_menu_visible = False
     
     def toggle_grid(self):
         """Toggle grid display"""

@@ -417,8 +417,16 @@ class TowerWarGame(Observer):
                 else:
                     ui_pos = event.pos
                 
-                # Check UI clicks first
-                ui_action = self.view.handle_ui_click(ui_pos)
+                # Check UI clicks first - but only if pause menu is visible when paused
+                ui_action = None
+                if (self.controller.game_state == GameState.PAUSED and 
+                    hasattr(self.view, 'pause_menu_visible') and 
+                    self.view.pause_menu_visible):
+                    # Only handle pause menu UI clicks when visible
+                    ui_action = self.view.handle_ui_click(ui_pos)
+                elif self.controller.game_state != GameState.PAUSED:
+                    # Handle other UI clicks when not paused
+                    ui_action = self.view.handle_ui_click(ui_pos)
                 
                 if ui_action == "restart":
                     # Hide pause menu first
@@ -431,6 +439,8 @@ class TowerWarGame(Observer):
                 elif ui_action == "resume":
                     if hasattr(self.controller, 'pause_game'):
                         self.controller.pause_game()  # This will unpause
+                        if self.view:
+                            self.view.hide_pause_menu()  # Hide pause menu when resuming
                 elif ui_action == "menu":
                     fade_out(self.screen, self.clock)
                     self.return_to_menu()
@@ -454,9 +464,9 @@ class TowerWarGame(Observer):
                             self.sound_manager.set_music_volume(0.5)
                         else:
                             self.sound_manager.set_music_volume(0.0)
-                        # Sync back to menu manager
-                        self.menu_manager.settings_menu.music_enabled = self.view.pause_menu.music_enabled
-                else:
+                    # Sync back to menu manager
+                    self.menu_manager.settings_menu.music_enabled = self.view.pause_menu.music_enabled
+                elif ui_action is None or ui_action == "none":
                     # Game click - only if not paused
                     if self.controller.game_state == GameState.PLAYING:
                         # Use the same translated coordinates from UI click handling
