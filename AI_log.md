@@ -10,12 +10,7 @@
 
 ## Issues Fixed
 
-### 1. ImageManager Error
-- **Problem**: `'ImageManager' object has no attribute 'get_image'`
-- **Cause**: Missing `get_image()` method in ImageManager.
-- **Solution**: Added a method to map image names to files with fallback rendering.
-
-### 2. Pause Menu and ESC Key Errors
+### 1. Pause Menu and ESC Key Errors
 - **Problem**:
   - ESC key quits the game instead of pausing.
   - The pause menu was not functioning correctly.
@@ -23,16 +18,16 @@
   - Modified the ESC key to pause instead of quit.
   - Improved the pause menu using the Observer pattern.
 
-### 3. Missing UI Pause Dialog
+### 2. Missing UI Pause Dialog
 - **Problem**: The game pauses without a selection dialog.
 - **Solution**: Added a pause dialog with "Continue" and "Main Menu" buttons.
 
-### 4. Negative Troops Bug
+### 3. Negative Troops Bug
 - **Problem**: `ValueError: Troops count cannot be negative`
 - **Cause**: The logic in `receive_attack()` could assign a negative troop count.
 - **Solution**: Corrected the logic to check `attacking_troops >= self.__troops` before calculation.
 
-### 5. Level Progression System
+### 4. Level Progression System
 - **Problem**: No progression system.
 - **Solution**:
   - Created 3 levels with increasing difficulty.
@@ -42,7 +37,7 @@
   - Added a `LevelManager` with the State pattern.
   - Implemented a level selection UI with buttons for each level.
 
-### 6. Game Result UI System
+### 5. Game Result UI System
 - **Problem**: Needed a UI to handle win/lose states and level transitions.
 - **Solution**:
   - Created a `GameResultView` with win/lose screens.
@@ -50,7 +45,7 @@
   - Lose screen: "Play Again" or "Main Menu" buttons.
   - Added support for an "All Levels Complete" message after winning the final level.
 
-### 7. Font and Unicode Issues
+### 6. Font and Unicode Issues
 - **Problem**:
   - Font errors with Vietnamese text.
   - Unicode characters caused crashes.
@@ -61,7 +56,7 @@
   - Added fallback font handling.
   - Removed emojis/special characters.
 
-### 8. Monotonous Interface
+### 7. Monotonous Interface
 - **Problem**:
   - The interface was plain and boring.
   - It didn't create excitement during gameplay.
@@ -71,7 +66,7 @@
   - Added an intro screen when the game starts.
   - Added fade-in/fade-out effects between screens.
 
-### 9. Lack of Game Audio
+### 8. Lack of Game Audio
 - **Problem**:
   - The game had no sound.
   - This created a dull and unengaging experience.
@@ -82,7 +77,7 @@
   - Added epic, motivating music during gameplay.
   - Added sound effects for button clicks and screen transitions.
 
-### 10. No Game Progression Saving Mechanism
+### 9. No Game Progression Saving Mechanism
 - **Problem**:
   - Exiting the game required starting over from the first level.
   - Inconvenient for players who had to leave mid-game.
@@ -93,7 +88,7 @@
   - Used `ProgressionManager` to handle writing/reading progress data to a file.
   - Progress is saved upon winning a level and loaded when the game starts.
 
-### 11. No Graphics for Objects
+### 10. No Graphics for Objects
 - **Problem**:
   - No graphics for objects: soldiers and towers.
   - The map was too simple.
@@ -126,45 +121,18 @@
 ## Key Prompts and Output Analysis
 
 
-### 1. ImageManager Error Prompt
-**User Input**: "The game reports an error: Cannot find the `get_image` function in ImageManager"
+### 1. Pause Menu Issues Prompt
+#### User Input
+"I want the game to exit to the menu when I press ESC instead of pausing, and I don't want the win/lose dialog to show up."
 
-**AI Output**:
-I see the error is that the `ImageManager` class is missing the `get_image()` method. Please edit the file `src/utils/image_manager.py`:
-
-```python
-def get_image(self, name: str) -> Optional[pygame.Surface]:
-    """
-    Get an image by name
-    Returns: pygame.Surface or None if not found
-    """
-    # Mapping from logical name to filename
-    name_to_file = {
-        'tower_player': 'tower_player.png',
-        'tower_enemy': 'tower_enemy.png', 
-        'tower_neutral': 'tower_neutral.png',
-        'background': 'background.png'
-    }
-    
-    filename = name_to_file.get(name)
-    if filename:
-        return self.load_image(filename)
-    return None
-```
-
-**Analysis**: Very helpful. I applied the exact code snippet suggested by the AI to the `src/utils/image_manager.py` file. Adding the `get_image` function made image management more logical, completely fixed the "method not found" error, and made the code more maintainable.
-
-### 2. Pause Menu Issues Prompt
-**User Input**: "I want the game to exit to the menu when I press ESC instead of pausing, and I don't want the win/lose dialog to show up."
-
-**AI Output**:
+#### AI Output
 I will fix the ESC key behavior and add the win/lose dialog. The main issues are:
 
 1. ESC is quitting instead of pausing.
 2. Missing win/lose detection.
 3. The pause menu is not working correctly.
 
-Modify `main.py`:
+##### Code Suggestion (main.py):
 
 ```python
 elif event.type == pygame.KEYDOWN:
@@ -175,7 +143,8 @@ elif event.type == pygame.KEYDOWN:
             self.resume_game()
 ```
 
-And add the `pause_game()` method:
+
+##### Code Suggestion (pause_game method):
 
 ```python
 def pause_game(self):
@@ -184,12 +153,16 @@ def pause_game(self):
     self.controller.notify("game_paused", {})
 ```
 
-**Analysis**: Helpful. I adjusted the ESC key logic and added the `pause_game` method to `main.py` as guided by the AI. The game now pauses correctly, and the code is clearer, although it introduced some minor bugs that needed further handling.
 
-### 3. UI Pause Improvement Prompt
-**User Input**: "I want a dialog box with 'Continue' and 'Main Menu' buttons to appear when the game is paused."
+#### Analysis
+Helpful. I adjusted the ESC key logic and added the `pause_game` method to `main.py` as guided by the AI. The game now pauses correctly, và code rõ ràng hơn, dù có phát sinh một số bug nhỏ cần xử lý thêm.
 
-**AI Output**:
+
+### 2. UI Pause Improvement Prompt
+#### User Input
+"I want a dialog box with 'Continue' and 'Main Menu' buttons to appear when the game is paused."
+
+#### AI Output
 I will improve the pause menu to display a dialog with choices. Modify `src/views/ui_view.py`:
 
 ```python
@@ -236,12 +209,16 @@ def draw_pause_menu(self, screen: pygame.Surface):
     screen.blit(menu_text, text_rect)
 ```
 
-**Analysis**: Very helpful. I added the `draw_pause_menu` function to `src/views/ui_view.py` exactly as instructed. The pause menu interface is now intuitive, the buttons work correctly, and it enhances the user experience.
 
-### 4. Negative Troops Bug Prompt
-**User Input**: "The game crashes when attacking troops capture a tower."
+#### Analysis
+Very helpful. I added the `draw_pause_menu` function to `src/views/ui_view.py` exactly as instructed. The pause menu interface is now intuitive, the buttons work correctly, and it enhances the user experience.
 
-**AI Output**:
+
+### 3. Negative Troops Bug Prompt
+#### User Input
+"The game crashes when attacking troops capture a tower."
+
+#### AI Output
 I see the error occurs when a tower receives an attack and its troop count becomes negative. The problem is in the `receive_attack` method; the code is assigning a negative number to the `troops` property, but the `troops` setter has validation that disallows negative numbers. Let's fix this:
 
 ```python
@@ -272,38 +249,41 @@ def receive_attack(self, attacking_troops: int, attacker_owner: str) -> bool:
 
 The problem is now fixed! The error occurred because the old logic could generate a negative troop count, but the new logic ensures that no negative troop count is ever assigned to the `troops` property.
 
-**Analysis**: Fixed a critical bug that caused the game to crash.
 
-### 5. AI Explanation Prompt
-**User Input**: "Please explain how the enemy AI works."
+#### Analysis
+Fixed a critical bug that caused the game to crash.
 
 
-**AI Output**:
+### 4. AI Explanation Prompt
+#### User Input
+"Please explain how the enemy AI works."
+
+#### AI Output
 Based on the actual code in `src/controllers/ai_controller.py`, the enemy AI uses the following design patterns:
 - **Strategy Pattern**: Allows dynamically changing the AI algorithm based on difficulty (the `SmartStrategy`, `AggressiveStrategy`, and `DefensiveStrategy` classes all inherit from `AIStrategy` and are selected via a factory method).
 - **Observer Pattern**: `AIController` inherits from `Observer` and `Subject`, receiving game events (like `tower_captured`, `game_started`) to adjust its behavior.
 
 The AI has 3 main strategies:
 
-#### 1. Easy/Medium/Hard (SmartStrategy)
+##### 1. Easy/Medium/Hard (SmartStrategy)
 - Uses the `SmartStrategy` class for all 3 levels (easy, medium, hard) but with different parameters.
 - The AI analyzes its own troop count and the player's to choose a tactical mode: "aggressive", "defensive", or "balanced".
 - It can perform actions like a coordinated assault (`coordinated_assault`), strategic expansion to neutral towers (`strategic_expansion`), defense (`defensive_consolidation`), or an opportunistic strike (`opportunistic_strike`).
 - The choice of action is based on the current situation (troop count, number of towers, randomness, etc.).
 - Higher difficulty levels mean the AI coordinates more towers, has a longer attack range, and acts more flexibly.
 
-#### 2. Nightmare (AggressiveStrategy)
+##### 2. Nightmare (AggressiveStrategy)
 - Uses the `AggressiveStrategy` class for the nightmare difficulty.
 - Always prioritizes fast attacks, choosing its strongest tower to attack the nearest or weakest target.
 - If no good target is found, it will fall back to attacking any nearby target.
 
-#### General Mechanism:
+##### General Mechanism:
 - The AI checks a timer (action interval) to decide when to act.
 - Based on the current strategy (depending on the difficulty), it decides on an action (by calling `decide_action`).
 - The action can be a single attack or a coordinated attack from multiple towers.
 - The AI keeps statistics on successful/failed attacks and its success rate.
 
-#### Example of SmartStrategy's action selection logic:
+##### Example of SmartStrategy's action selection logic:
 ```python
 def decide_action(self, enemy_towers, all_towers):
     # ...
@@ -319,12 +299,16 @@ def decide_action(self, enemy_towers, all_towers):
         return self._opportunistic_strike(...)
 ```
 
-**Analysis**: Very helpful, the explanation matches the actual code. Understanding the strategies in `ai_controller.py` makes it easier to adjust difficulty, expand the AI, or debug AI behavior in the game.
 
-### 6. Level System Implementation Prompt
-**User Input**: "Please add a level system with about 2-3 levels of increasing difficulty. Currently, there is only 1 level."
+#### Analysis
+Very helpful, the explanation matches the actual code. Understanding the strategies in `ai_controller.py` makes it easier to adjust difficulty, expand the AI, or debug AI behavior in the game.
 
-**AI Output**:
+
+### 5. Level System Implementation Prompt
+#### User Input
+"Please add a level system with about 2-3 levels of increasing difficulty. Currently, there is only 1 level."
+
+#### AI Output
 I will add a level system with 3 levels of increasing difficulty. Here's how to implement it:
 
 1. **Create LevelConfig in constants.py**:
@@ -355,12 +339,16 @@ def advance_to_next_level(self) -> bool:
 - Lose level → restart current level
 - Auto-progression with Observer pattern
 
-**Analysis**: Successfully created a system with 3 levels of increasing difficulty and automatic level transition logic.
 
-### 7. UI Improvement Prompt
-**User Input**: "I want an intermediate screen to select the level."
+#### Analysis
+Successfully created a system with 3 levels of increasing difficulty and automatic level transition logic.
 
-**AI Output**:
+
+### 6. UI Improvement Prompt
+#### User Input
+"I want an intermediate screen to select the level."
+
+#### AI Output
 I will create a complete UI system with level selection and result screens:
 
 1. **LevelSelectView**: UI for level selection with difficulty information.
@@ -374,12 +362,16 @@ Main Menu → Level Select → Game → Result Screen
      └─────────┴──────────┴─────────┘
 ```
 
-**Analysis**: Created a complete UI flow, resulting in a smooth user experience with multiple navigation options.
 
-### 8. Font Issues Prompt
-**User Input**: "Vietnamese font error, dialog box error: the win/lose dialog flickers."
+#### Analysis
+Created a complete UI flow, resulting in a smooth user experience with multiple navigation options.
 
-**AI Output**:
+
+### 7. Font Issues Prompt
+#### User Input
+"Vietnamese font error, dialog box error: the win/lose dialog flickers."
+
+#### AI Output
 I see two main problems:
 
 1. **Font Unicode issues**: pygame doesn't handle Vietnamese well.
@@ -396,41 +388,53 @@ if self.app_state == "result" and not self.result_processed:
     # Handle result logic once
 ```
 
-**Analysis**: Solved most of the issues from the prompt, but it was not completely stable.
 
-### 9. Convert to English Prompt
-**User Input**: "Please convert all text in the UI to English."
+#### Analysis
+Solved most of the issues from the prompt, but it was not completely stable.
 
-**AI Output**:
+
+### 8. Convert to English Prompt
+#### User Input
+"Please convert all text in the UI to English."
+
+#### AI Output
 I will convert all UI text to English to avoid Unicode issues...
 
-**Analysis**: A simple and effective solution that completely eliminated the problem with Unicode.
+#### Analysis
+A simple and effective solution that completely eliminated the problem with Unicode.
 
-### 10. Add Win/Lose Effects Prompt
-**User Input**: "When you win or lose, can you add a special animation or sound effect?"
 
-**AI Output**:
+### 9. Add Win/Lose Effects Prompt
+#### User Input
+"When you win or lose, can you add a special animation or sound effect?"
+
+#### AI Output
 Yes, you can add effects by:
 - Adding an animation to `GameResultView` on win/lose.
 - Playing a special sound in `sound_manager.py` at the end of the match..
 - Using transition effects in transition.py to enhance the experience.
 
 
-### 11. Save and Load Game Progress Prompt
-**User Input**: "I want to save game progress and allow the player to click 'Continue' to resume from the last level."
 
-**AI Output**:
+### 10. Save and Load Game Progress Prompt
+#### User Input
+"I want to save game progress and allow the player to click 'Continue' to resume from the last level."
+
+#### AI Output
 - Use `progression_manager.py` to save the level state to a `progression_save.json` file.
 - When the game starts, check for the save file and load the corresponding level.
 - Add a "Continue" button to the main menu to resume from the saved level.
 
-**Analysis**: Helpful. I implemented game progress saving using `progression_manager.py` and added a "Continue" button to the main menu as the AI suggested. Players can now continue from their last completed level. It works stably in testing, and the code is easy to extend for other save/load features.
+#### Analysis
+Helpful. I implemented game progress saving using `progression_manager.py` and added a "Continue" button to the main menu as the AI suggested. Players can now continue from their last completed level. It works stably in testing, and the code is easy to extend for other save/load features.
 
 
-### 12. Prompt to Add Background Music to Intro and Menu
-**User Input**: "I want to add background music to the intro and when I'm in the menu"
 
-**AI Output**:
+### 11. Prompt to Add Background Music to Intro and Menu
+#### User Input
+"I want to add background music to the intro and when I'm in the menu"
+
+#### AI Output
 1. **Add background music to the intro section**:
 - Location: In `show_intro(screen, max_duration=4000)` called in `main`.
 - Assuming the music file `intro_music.mp3` is in the `assets/sounds/` directory, you can edit the `intro_view.py` file (in `src/views/`) as follows:
@@ -533,7 +537,7 @@ class SoundManager:
         pass
 ```
 
-**Analysis**:
+#### Analysis:
 Very good. It solved the issue of inserting separate background music for the intro and menu, with smooth transitions.
 
 **Completion Date**: 23/08/2025
